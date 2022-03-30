@@ -3,7 +3,7 @@ from math import floor
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
 from time import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from uuid import uuid4
 
 import timeago
@@ -145,7 +145,7 @@ def init_db(cur_version: str) -> None:
 
 
 # add link to database
-def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
+def save_link(name: str, url: str, link_id: Optional[str] = None) -> Union[float, bool]:
     """
     Save link to database, or update existing link with a new name or url.
 
@@ -158,13 +158,13 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
         link_id (Optional[str]): Link id.
 
     Returns:
-        None: None.
-        TODO: Return ID of newly created link.
-        TODO: new link rank should be an average of all existing links.
+        Union[float, bool]: Link id if new link, True if link updated.
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     if link_id is None:
+        cur.execute("SELECT avg(rank) FROM links")
+        rank = cur.fetchone()[0]
         with con:
             cur.execute(
                 "INSERT INTO links (id, url, name, rank, accessed) VALUES (:id, :url, :name, :rank, :accessed)",
@@ -172,10 +172,11 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
                     "id": str(uuid4()),
                     "url": url,
                     "name": name,
-                    "rank": 1,
+                    "rank": rank,
                     "accessed": int(time()),
                 },
             )
+            return cur.lastrowid
     else:
         with con:
             cur.execute(
@@ -186,6 +187,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
                     "url": url,
                 },
             )
+            return True
 
 
 # Read config from data
