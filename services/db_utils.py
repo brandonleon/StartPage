@@ -51,6 +51,12 @@ def get_link(link_id: str) -> sqlite3.Row:
         "SELECT id, name, url fROM links WHERE id = :link_id", {"link_id": link_id}
     )
     link = cur.fetchone()
+    # update accessed time and rank
+    cur.execute(
+        "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
+        {"accessed": int(time()), "link_id": link_id}
+    )
+    con.commit()
     con.close()
     return link
 
@@ -154,6 +160,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
     Returns:
         None: None.
         TODO: Return ID of newly created link.
+        TODO: new link rank should be an average of all existing links.
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
