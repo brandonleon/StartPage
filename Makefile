@@ -13,8 +13,8 @@ install:
 
 dockerbuild:
 	docker build . -t startpage
-	mkdir ~/.config/startpage/
-	docker run -d -p 8000:8000 --restart=always --name startpage -v ~/.config/startpage:/usr/src/app/data startpage
+	mkdir -p ~/.config/startpage/
+	docker run -d -p 8080:8080 --restart=always --name startpage -v ~/.config/startpage:/usr/startpage/data startpage
 
 run:
 	screen -dmS startpage poetry run uvicorn main:app
