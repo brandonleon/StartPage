@@ -1,0 +1,49 @@
+{% extends "components/base.html" %}
+{% block title %}StartPage - Links{% endblock %}
+{% block body %}
+<div class="row">
+	<div class="col-sm"></div>
+	<div class="col-sm">
+		{% if id is defined %}
+		<form action="{{ url_for('commit') }}" method="POST">
+			  <div class="mb-3">
+				<label for="name" class="form-label">Name</label>
+				<input class="form-control form-control-sm" id="name" name="name" value="{{name}}">
+			  </div>
+			  <div class="mb-3">
+				<label for="url" class="form-label">URL</label>
+				<input class="form-control form-control-sm" id="url" name="url" value="{{url}}">
+			  </div>
+			  <div class="mb-3">
+			    <label for="newtags" class="form-label">New Tags<br><small>Comma separated, no spaces in tag names</small></label>
+				<input class="form-control form-control-sm" id="newtags" name="newtags" placeholder="work, school, personal">
+				<label for="newtags" class="form-label">Existing Tags<br><small>Deselect items to remove.</small></label>
+				<select class="form-select" multiple aria-label="multiple select example">
+					  {% for tag in tags %}
+					  <option selected>{{tag}}</option>
+					  {% endfor %}
+				</select>
+			  </div>
+			  <input type="hidden" id="id" name="id" value="{{id}}">
+			  <button type="submit" class="btn btn-primary">Submit</button>
+		</form>
+		{% else %}
+		<form action="{{ url_for('update') }}" method="POST">
+			<div class="mb-3">
+				<select class="form-select" name="id">
+					<option selected>select item to edit</option>
+					{% for link in links %}
+					<option value="{{link.id}}">{{link.name}}</option>{% endfor %}
+				</select>
+			</div>
+			<div class="mb-3">
+				<button type="submit" class="btn btn-danger" name="action" value="delete">DELETE</button>
+				<button type="submit" class="btn btn-primary" name="action" value="edit">Edit</button>
+			</div>
+		</form>
+		{% endif %}
+	</div>
+	<div class="col-sm"></div>
+</div>
+
+{% endblock %}

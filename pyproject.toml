@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "startpage"
+version = "1.0.0"
+description = ""
+authors = ["Brandon Leon <brandonleon@pm.me>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+python-dotenv = "^0.19.2"
+pytest = "^7.0.1"
+timeflake = "^0.4.2"
+uuid = "^1.30"
+fastapi = "^0.75.0"
+uvicorn = "^0.17.5"
+Jinja2 = "^3.0.3"
+aiofiles = "^0.8.0"
+timeago = "^1.0.15"
+python-multipart = "^0.0.5"
+
+[tool.poetry.dev-dependencies]
+mypy = "^0.941"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

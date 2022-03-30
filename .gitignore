@@ -1,0 +1,7 @@
+.DS_Store
+/links.db*
+*.log
+/data/
+.nova
+.idea
+__pycache__/
