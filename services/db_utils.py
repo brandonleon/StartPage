@@ -7,6 +7,7 @@ from typing import Dict, Optional, Union
 from uuid import uuid4
 
 import timeago
+import tomlkit
 
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
@@ -236,14 +237,26 @@ def decrement_rank(max_rank: int = 1000) -> bool:
     Returns:
         None: None.
     """
-    print("Checking if total rank is greater than max rank...")
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     cur.execute("SELECT sum(rank) FROM links")
     total_rank = cur.fetchone()[0]
     if total_rank >= max_rank:
-        print("Decrementing rank")
+        print(f"sum of ranks is greater than max rank ({max_rank}), decrementing all ranks")
         cur.execute("UPDATE links SET rank = rank * 0.99")
         con.commit()
         return True
     return False
+
+
+# Get application metadata from pyproject.toml file.
+def get_app_metadata() -> Dict[str, str]:
+    """
+    Get application metadata from pyproject.toml file.
+
+    Returns:
+        Dict[str, str]: Application metadata.
+    """
+    with open(join(realpath(join(dirname(__file__), "../pyproject.toml")))) as f:
+        f = f.read()
+        return tomlkit.parse(f)["tool"]["poetry"]
