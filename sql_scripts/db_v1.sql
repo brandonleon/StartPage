@@ -20,5 +20,4 @@ CREATE TABLE IF NOT EXISTS metadata
  value TEXT not null
 );
 
-INSERT INTO metadata (id, name, value) VALUES ('1', 'db_version', '1.0.0-alpha.0');
--- TODO: dynamically get the version from the pyproject.toml file
+INSERT INTO metadata (id, name, value) VALUES ('1', 'db_version', '1.0.0');
