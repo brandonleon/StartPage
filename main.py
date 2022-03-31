@@ -1,11 +1,10 @@
 import sqlite3
-from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from packaging.version import Version, parse
+from packaging.version import parse
 
 import services.db_utils as db_utils
 
@@ -36,15 +35,16 @@ templates = Jinja2Templates(directory="templates")
 
 
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request, page: int = 0):
+async def root(background_tasks: BackgroundTasks, request: Request, page: int = 0):
     links = db_utils.get_links(page)
+    background_tasks.add_task(db_utils.decrement_rank, 1000) # TODO: Change max_rank to a config value in the database.
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
             "links": links,
             "page": page,
-            "count": db_utils.get_count(),
+            "count": db_utils.get_count()["pages"],
         },
     )
 
@@ -78,7 +78,7 @@ async def dashboard(request: Request, page: int = 0):
             "request": request,
             "links": links,
             "page": page,
-            "count": db_utils.get_count(),
+            "count": db_utils.get_count()["count"]
         },
     )
 

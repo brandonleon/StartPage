@@ -31,8 +31,6 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                         <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
-                        <li><a class="dropdown-item" href="/add">Add</a></li>
-                        <li><a class="dropdown-item" href="/update">Update / Delete</a></li>
                         <li><a class="dropdown-item disabled" href="/export">Export</a></li>
                         <!-- TODO: Still working on these functions -->
                         <li><a class="dropdown-item disabled" href="/import">Import</a></li>
@@ -69,9 +67,9 @@
     {% if page >= 2 %}<li class="page-item"><a class="page-link" href="/?page={{ page - 2 }}">{{ page - 2 }}</a></li>{% endif %}
     {% if page >= 1 %}<li class="page-item"><a class="page-link" href="/?page={{ page - 1 }}">{{ page - 1 }}</a></li>{% endif %}
     <li class="page-item disabled"><a class="page-link" href="#"><strong>{{ page }}</strong></a></li>
-    {% if page <= count - 1 %}<li class="page-item"><a class="page-link" href="#">{{ page + 1}}</a></li>{% endif %}
-    {% if page <= count - 2 %}<li class="page-item"><a class="page-link" href="#">{{ page + 2 }}</a></li>{% endif %}
-    {% if page <= count - 3 %}<li class="page-item"><a class="page-link" href="#">{{ page + 3 }}</a></li>{% endif %}
+    {% if page <= count - 1 %}<li class="page-item"><a class="page-link" href="/?page={{ page + 1}}">{{ page + 1}}</a></li>{% endif %}
+    {% if page <= count - 2 %}<li class="page-item"><a class="page-link" href="/?page={{ page + 2}}">{{ page + 2 }}</a></li>{% endif %}
+    {% if page <= count - 3 %}<li class="page-item"><a class="page-link" href="/?page={{ page + 3}}">{{ page + 3 }}</a></li>{% endif %}
     <li class="page-item{% if page >= count %} disabled{% endif %}">
       <a class="page-link" href="/?page={{ page + 1 }}">&raquo;</a>
     </li>
