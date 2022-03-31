@@ -3,19 +3,17 @@ from math import floor
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
 from time import time
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from uuid import uuid4
 
 import timeago
-from packaging.version import parse
 
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
 # Get count of links in database
 # Used for pagination
-# TODO: return count of links and pages.
-def get_count(batch: Optional[int] = 20) -> int:
+def get_count(batch: Optional[int] = 20) -> Dict[str, int]:
     """
     Get count of links in database.
 
@@ -23,14 +21,14 @@ def get_count(batch: Optional[int] = 20) -> int:
         batch (Optional[int]): Number of links to return per page.
 
     Returns:
-        int: Count of links in database.
+        Dict[str, int]: Count of links, and number of pages.
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     cur.execute("SELECT COUNT(*) fROM links")
     count = cur.fetchone()[0]
     con.close()
-    return floor(count / batch)
+    return {"count": count, "pages": floor(count / batch)}
 
 
 # Get individual link
@@ -51,6 +49,12 @@ def get_link(link_id: str) -> sqlite3.Row:
         "SELECT id, name, url fROM links WHERE id = :link_id", {"link_id": link_id}
     )
     link = cur.fetchone()
+    # update accessed time and rank
+    cur.execute(
+        "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
+        {"accessed": int(time()), "link_id": link_id}
+    )
+    con.commit()
     con.close()
     return link
 
@@ -94,22 +98,21 @@ def get_links(page: int = 0, batch: int = 20):
 def delete_link(link_id: str) -> None:
     """
     Delete link from database.
-    TODO: return success or failure.
 
     Parameters:
         link_id (str): Link id.
     Returns
         None: None.
+        TODO: return success or failure.
 
     """
     con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    cur.execute("DELETE FROM links WHERE id = :link_id", {"link_id": link_id})
-    con.commit()
-    con.close()
+    with con as cur:
+        cur.execute("DELETE FROM links WHERE id = :link_id", {"link_id": link_id})
 
 
 # initialize database
+# TODO: pass current version of DB
 def init_db(cur_version: str) -> None:
     """Check if database exists, if not create it.
 
@@ -119,7 +122,6 @@ def init_db(cur_version: str) -> None:
     Returns:
         None: None.
     """
-    app_version = parse(cur_version)
     if not isdir(dirname(db_path)):
         mkdir(dirname(db_path))
 
@@ -132,14 +134,14 @@ def init_db(cur_version: str) -> None:
     result = cur.fetchone()
     if result is None:
         with open(
-            join(realpath(join(dirname(__file__), "../sql_scripts", "db_v1.sql"))), "r"
+                join(realpath(join(dirname(__file__), "../sql_scripts", "db_v1.sql"))), "r"
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
 
 
 # add link to database
-def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
+def save_link(name: str, url: str, link_id: Optional[str] = None) -> Union[float, bool]:
     """
     Save link to database, or update existing link with a new name or url.
 
@@ -152,25 +154,27 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
         link_id (Optional[str]): Link id.
 
     Returns:
-        None: None.
-        TODO: Return ID of newly created link.
+        Union[float, bool]: Link id if new link, True if existing link updated.
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     if link_id is None:
-        with con:
+        cur.execute("SELECT avg(rank) FROM links")
+        rank = cur.fetchone()[0]
+        with con as cur:
             cur.execute(
                 "INSERT INTO links (id, url, name, rank, accessed) VALUES (:id, :url, :name, :rank, :accessed)",
                 {
                     "id": str(uuid4()),
                     "url": url,
                     "name": name,
-                    "rank": 1,
+                    "rank": rank,
                     "accessed": int(time()),
                 },
             )
+            return cur.lastrowid
     else:
-        with con:
+        with con as cur:
             cur.execute(
                 "UPDATE links SET name = :name, url = :url WHERE id = :id",
                 {
@@ -179,6 +183,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> None:
                     "url": url,
                 },
             )
+            return True
 
 
 # Read config from data
@@ -187,7 +192,7 @@ def read_config() -> Dict[str, str]:
     Read config from database.
 
     Returns:
-        Dict[str, str]: Config.
+        Dict[str, str]: Config name and value.
     """
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
@@ -214,7 +219,31 @@ def upgrade_db(cur_version: str, desired_version: str) -> None:
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     with open(
-        join(realpath(join(dirname(__file__), "../sql_scripts", migration_script))), "r"
+            join(realpath(join(dirname(__file__), "../sql_scripts", migration_script))), "r"
     ) as sql_file:
         cur.executescript(sql_file.read())
         con.commit()
+
+
+# Decrement the rank of all links when the sum of ranks is greater than the max rank.
+def decrement_rank(max_rank: int = 1000) -> bool:
+    """
+    Decrement the rank of all links when the sum of ranks is greater than the max rank.
+
+    Parameters:
+        max_rank (int): Maximum rank.
+
+    Returns:
+        None: None.
+    """
+    print("Checking if total rank is greater than max rank...")
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    cur.execute("SELECT sum(rank) FROM links")
+    total_rank = cur.fetchone()[0]
+    if total_rank >= max_rank:
+        print("Decrementing rank")
+        cur.execute("UPDATE links SET rank = rank * 0.99")
+        con.commit()
+        return True
+    return False
