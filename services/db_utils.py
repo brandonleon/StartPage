@@ -96,24 +96,23 @@ def get_links(page: int = 0, batch: int = 20):
 
 
 # delete link by id
-def delete_link(link_id: str) -> None:
+def delete_link(link_id: str) -> bool:
     """
     Delete link from database.
 
     Parameters:
         link_id (str): Link id.
     Returns
-        None: None.
-        TODO: return success or failure.
-
+        bool: True if link deleted, False if not.
     """
     con = sqlite3.connect(db_path)
     with con as cur:
         cur.execute("DELETE FROM links WHERE id = :link_id", {"link_id": link_id})
+        return True
+    return False
 
 
 # initialize database
-# TODO: pass current version of DB
 def init_db(cur_version: str) -> None:
     """Check if database exists, if not create it.
 
@@ -142,7 +141,7 @@ def init_db(cur_version: str) -> None:
 
 
 # add link to database
-def save_link(name: str, url: str, link_id: Optional[str] = None) -> Union[float, bool]:
+def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
     """
     Save link to database, or update existing link with a new name or url.
 
@@ -155,7 +154,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> Union[float
         link_id (Optional[str]): Link id.
 
     Returns:
-        Union[float, bool]: Link id if new link, True if existing link updated.
+        bool: True if link was saved, False if link was not saved.
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -173,7 +172,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> Union[float
                     "accessed": int(time()),
                 },
             )
-            return cur.lastrowid
+            return True
     else:
         with con as cur:
             cur.execute(
@@ -185,6 +184,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> Union[float
                 },
             )
             return True
+    return False
 
 
 # Read config from data
