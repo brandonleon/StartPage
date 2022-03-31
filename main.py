@@ -21,10 +21,9 @@ try:
 except sqlite3.OperationalError:
     config["db_version"] = parse("0.0")
 
-config["app_version"] = parse("1.0.0-alpha.0")
-# TODO: dynamically get the version from the pyproject.toml file
+config["app_version"] = parse(db_utils.get_app_metadata()['version'])
 
-if config["app_version"] != config["db_version"]:
+if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
 
 # Create the app
