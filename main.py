@@ -21,7 +21,7 @@ try:
 except sqlite3.OperationalError:
     config["db_version"] = parse("0.0")
 
-config["app_version"] = parse(db_utils.get_app_metadata()['version'])
+config["app_version"] = parse(db_utils.get_app_metadata()["version"])
 
 if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
@@ -33,18 +33,27 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 
+# get first page of links
 @app.get("/", response_class=HTMLResponse)
 async def root(background_tasks: BackgroundTasks, request: Request, page: int = 0):
     links = db_utils.get_links(page)
-    background_tasks.add_task(db_utils.decrement_rank, 1000) # TODO: Change max_rank to a config value in the database.
+    background_tasks.add_task(
+        db_utils.decrement_rank, 1000
+    )  # TODO: Change max_rank to a config value in the database.
     return templates.TemplateResponse(
         "index.html",
-        {
-            "request": request,
-            "links": links,
-            "page": page,
-            "count": db_utils.get_count()["pages"],
-        },
+        dict(
+            request=request, links=links, page=page, count=db_utils.get_count()["pages"]
+        ),
+    )
+
+
+# get next page of links for infinite scroll
+@app.get("/links/{page}", response_class=HTMLResponse)
+async def links(request: Request, page: int):
+    links = db_utils.get_links(page)
+    return templates.TemplateResponse(
+        "links.html", {"request": request, "links": links, "page": page, "next_page": page + 1}
     )
 
 
@@ -77,7 +86,7 @@ async def dashboard(request: Request, page: int = 0):
             "request": request,
             "links": links,
             "page": page,
-            "count": db_utils.get_count()["count"]
+            "count": db_utils.get_count()["count"],
         },
     )
 
