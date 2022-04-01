@@ -1,0 +1,4 @@
+            {% for link in links %}
+                <li class="list-group-item lh-1"{% if loop.last %} hx-get="/links/{{ next_page }}" hx-trigger="revealed" hx-swap="afterend"{% endif %}><a href="/redirect/{{ link.id }}" target="_blank" data-bs-toggle="tooltip" data-bs-placement="left"
+                       data-bs-delay="200" title="{{ link.url }}">{{ link.name }}</a></li>
+            {% endfor %}
