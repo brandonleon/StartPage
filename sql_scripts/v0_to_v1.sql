@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS links
 );
 INSERT INTO links (id, name, url, rank, accessed) SELECT id, name, url, clicks, strftime('%s', 'now') as accessed FROM links_old;
 DROP TABLE links_old;
+DROP TABLE clicks;
 
 CREATE TABLE IF NOT EXISTS config
 (id VARCHAR(36) not null primary key,
