@@ -161,6 +161,8 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
     if link_id is None:
         cur.execute("SELECT avg(rank) FROM links")
         rank = cur.fetchone()[0]
+        if rank is None:
+            rank = 1.0
         with con as cur:
             cur.execute(
                 "INSERT INTO links (id, url, name, rank, accessed) VALUES (:id, :url, :name, :rank, :accessed)",
@@ -241,13 +243,16 @@ def decrement_rank(max_rank: int = 1000) -> bool:
     cur = con.cursor()
     cur.execute("SELECT sum(rank) FROM links")
     total_rank = cur.fetchone()[0]
-    if total_rank >= max_rank:
-        print(
-            f"sum of ranks is greater than max rank ({max_rank}), decrementing all ranks"
-        )
-        cur.execute("UPDATE links SET rank = rank * 0.99")
-        con.commit()
-        return True
+    # total_rank will be None if there are no links in the database.
+    # Check if total_rank is greater than max_rank.
+    if total_rank is not None:
+        if total_rank >= max_rank:
+            print(
+                f"sum of ranks is greater than max rank ({max_rank}), decrementing all ranks"
+            )
+            cur.execute("UPDATE links SET rank = rank * 0.99")
+            con.commit()
+            return True
     return False
 
 
