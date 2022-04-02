@@ -48,12 +48,38 @@ async def root(background_tasks: BackgroundTasks, request: Request, page: int = 
     )
 
 
+# Dashboard
+@app.get("/dashboard/", response_class=HTMLResponse)
+async def dashboard(request: Request, page: int = 0):
+    links = db_utils.get_links(page)
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "links": links,
+            "page": page,
+            "count": db_utils.get_count()["count"],
+        },
+    )
+
+
 # get next page of links for infinite scroll
 @app.get("/links/{page}", response_class=HTMLResponse)
 async def links(request: Request, page: int):
     links = db_utils.get_links(page)
     return templates.TemplateResponse(
-        "links.html", {"request": request, "links": links, "page": page, "next_page": page + 1}
+        "links.html",
+        {"request": request, "links": links, "page": page, "next_page": page + 1},
+    )
+
+
+# get next page of links for infinite scroll
+@app.get("/dashboard_items/{page}", response_class=HTMLResponse)
+async def links(request: Request, page: int):
+    links = db_utils.get_links(page)
+    return templates.TemplateResponse(
+        "dashboard_items.html",
+        {"request": request, "links": links, "page": page, "next_page": page + 1},
     )
 
 
@@ -74,21 +100,6 @@ async def add_link(link_name: str = Form(...), link_url: str = Form(...)):
 @app.get("/redirect/{link_id}")
 async def redirect(link_id):
     return RedirectResponse(db_utils.get_link(link_id)[2])
-
-
-# Dashboard
-@app.get("/dashboard/", response_class=HTMLResponse)
-async def dashboard(request: Request, page: int = 0):
-    links = db_utils.get_links(page)
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
-            "links": links,
-            "page": page,
-            "count": db_utils.get_count()["count"],
-        },
-    )
 
 
 # edit individual link

@@ -32,6 +32,7 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                         <li><a class="dropdown-item disabled" href="/dashboard">Dashboard</a></li>
+                        <li><a class="dropdown-item" href="/add">Add</a></li>
                         <li><a class="dropdown-item disabled" href="/export">Export</a></li>
                         <!-- TODO: Still working on these functions -->
                         <li><a class="dropdown-item disabled" href="/import">Import</a></li>
@@ -46,7 +47,7 @@
 <div class="mx-2">
     <div class="row row-cols-md-2 g-4">
         {% for link in links %}
-            <div class="col">
+            <div class="col" {% if loop.last %} hx-get="/dashboard_items/1" hx-trigger="revealed" hx-swap="afterend"{% endif %}>
                 <div class="card h-100">
                   <div class="card-body">
                     <h5 id="card-title">{{ link.name }}</h5>
@@ -63,35 +64,12 @@
     </div>
 </div>
 
-<nav aria-label="Page navigation example">
-  <ul class="pagination justify-content-center">
-    <li class="page-item{% if page == 0 %} disabled{% endif %}">
-      <a class="page-link" href="/dashboard">First</a>
-    </li>
-    <li class="page-item{% if page == 0 %} disabled{% endif %}">
-      <a class="page-link" href="/dashboard?page={{ page - 1 }}">&laquo;</a>
-    </li>
-    {% if page >= 3 %}<li class="page-item"><a class="page-link" href="/dashboard?page={{ page - 3 }}">{{ page - 3 }}</a></li>{% endif %}
-    {% if page >= 2 %}<li class="page-item"><a class="page-link" href="/dashboard?page={{ page - 2 }}">{{ page - 2 }}</a></li>{% endif %}
-    {% if page >= 1 %}<li class="page-item"><a class="page-link" href="/dashboard?page={{ page - 1 }}">{{ page - 1 }}</a></li>{% endif %}
-    <li class="page-item disabled"><a class="page-link" href="#"><strong>{{ page }}</strong></a></li>
-    {% if page <= count - 1 %}<li class="page-item"><a class="page-link" href="/dashboard?page={{ page + 1 }}">{{ page + 1}}</a></li>{% endif %}
-    {% if page <= count - 2 %}<li class="page-item"><a class="page-link" href="/dashboard?page={{ page + 1 }}">{{ page + 2 }}</a></li>{% endif %}
-    {% if page <= count - 3 %}<li class="page-item"><a class="page-link" href="/dashboard?page={{ page + 1 }}">{{ page + 3 }}</a></li>{% endif %}
-    <li class="page-item{% if page >= count %} disabled{% endif %}">
-      <a class="page-link" href="/dashboard?page={{ page + 1 }}">&raquo;</a>
-    </li>
-    <li class="page-item{% if page >= count %} disabled{% endif %}">
-      <a class="page-link" href="/dashboard?page={{ count }}">Last</a>
-    </li>
-  </ul>
-</nav>
 <script
         src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
         crossorigin="anonymous"
 ></script>
-
+<script src="https://unpkg.com/htmx.org@1.7.0"></script>
 <script>var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
 var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl)
