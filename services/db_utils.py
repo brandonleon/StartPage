@@ -53,7 +53,7 @@ def get_link(link_id: str) -> sqlite3.Row:
     # update accessed time and rank
     cur.execute(
         "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
-        {"accessed": int(time()), "link_id": link_id}
+        {"accessed": int(time()), "link_id": link_id},
     )
     con.commit()
     con.close()
@@ -84,13 +84,13 @@ def get_links(page: int = 0, batch: int = 20):
     )
     rows = cur.fetchall()
     return [
-        {
-            "id": row["id"],
-            "url": row["url"],
-            "name": row["name"],
-            "rank": row["rank"],
-            "accessed": timeago.format(row["accessed"]),
-        }
+        dict(
+            id=row["id"],
+            url=row["url"],
+            name=row["name"],
+            rank=row["rank"],
+            accessed=timeago.format(row["accessed"]),
+        )
         for row in rows
     ]
 
@@ -134,7 +134,7 @@ def init_db(cur_version: str) -> None:
     result = cur.fetchone()
     if result is None:
         with open(
-                join(realpath(join(dirname(__file__), "../sql_scripts", "db_v1.sql"))), "r"
+            join(realpath(join(dirname(__file__), "../sql_scripts", "db_v1.sql"))), "r"
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
@@ -220,7 +220,7 @@ def upgrade_db(cur_version: str, desired_version: str) -> None:
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     with open(
-            join(realpath(join(dirname(__file__), "../sql_scripts", migration_script))), "r"
+        join(realpath(join(dirname(__file__), "../sql_scripts", migration_script))), "r"
     ) as sql_file:
         cur.executescript(sql_file.read())
         con.commit()
@@ -242,7 +242,9 @@ def decrement_rank(max_rank: int = 1000) -> bool:
     cur.execute("SELECT sum(rank) FROM links")
     total_rank = cur.fetchone()[0]
     if total_rank >= max_rank:
-        print(f"sum of ranks is greater than max rank ({max_rank}), decrementing all ranks")
+        print(
+            f"sum of ranks is greater than max rank ({max_rank}), decrementing all ranks"
+        )
         cur.execute("UPDATE links SET rank = rank * 0.99")
         con.commit()
         return True
