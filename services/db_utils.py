@@ -3,7 +3,7 @@ from math import floor
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
 from time import time
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional
 from uuid import uuid4
 
 import timeago
@@ -83,6 +83,7 @@ def get_links(page: int = 0, batch: int = 20):
         {"page": page, "batch": batch},
     )
     rows = cur.fetchall()
+    con.close()
     return [
         dict(
             id=row["id"],
@@ -267,3 +268,28 @@ def get_app_metadata() -> Dict[str, str]:
     with open(join(realpath(join(dirname(__file__), "../pyproject.toml")))) as f:
         f = f.read()
         return tomlkit.parse(f)["tool"]["poetry"]
+
+
+# Search for links in the database.
+def search_links(query: str) -> List[Dict[str, str]]:
+    """
+    Search for links in the database.
+
+    Parameters:
+        query (str): Search query.
+
+    Returns:
+        List[Dict[str, str]]: Links.
+    """
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+
+    cur = con.cursor()
+    cur.execute(
+        "SELECT id, name, url FROM links WHERE name LIKE :query OR url LIKE :query",
+        {"query": f"%{query}%"},
+    )
+    rows = cur.fetchall()
+    con.close()
+    result = [{"id": row["id"], "name": row["name"], "url": row["url"]} for row in rows]
+    return result
