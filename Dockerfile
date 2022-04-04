@@ -3,7 +3,7 @@ FROM python:3.10
 ENV LOG_LEVEL="info"\
     WORKERS=2 \
     ENVIRONMENT="production" \
-    POETRY_VERSION=1.0.0 \
+    POETRY_VERSION=1.1.13 \
     WORKING_DIR="/usr/startpage"
 
 WORKDIR $WORKING_DIR

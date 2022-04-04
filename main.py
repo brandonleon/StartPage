@@ -92,7 +92,6 @@ async def links(request: Request, page: int):
 # search for links:
 @app.get("/search", response_class=HTMLResponse)
 async def search(request: Request, text: str):
-    print(text)
     links = db_utils.search_links(text)
     return templates.TemplateResponse(
         "links.html", {"request": request, "links": links, "search_term": text}

@@ -249,7 +249,7 @@ def decrement_rank(max_rank: int = 1000) -> bool:
     if total_rank is not None:
         if total_rank >= max_rank:
             print(
-                f"sum of ranks is greater than max rank ({max_rank}), decrementing all ranks"
+                f"INFO:\tThe sum of ranks is greater than max rank ({max_rank}), decrementing all ranks."
             )
             cur.execute("UPDATE links SET rank = rank * 0.99")
             con.commit()

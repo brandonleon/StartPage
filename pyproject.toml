@@ -6,7 +6,7 @@ authors = ["Brandon Leon <brandonleon@pm.me>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-python-dotenv = "^0.19.2"
+python-dotenv = "^0.20.0"
 pytest = "^7.0.1"
 timeflake = "^0.4.2"
 uuid = "^1.30"
