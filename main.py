@@ -22,6 +22,7 @@ except sqlite3.OperationalError:
     config["db_version"] = parse("0.0")
 
 config["app_version"] = parse(db_utils.get_app_metadata()["version"])
+config["app_name"] = db_utils.get_app_metadata()["name"]
 
 if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
@@ -42,9 +43,14 @@ async def root(background_tasks: BackgroundTasks, request: Request, page: int = 
     )  # TODO: Change max_rank to a config value in the database.
     return templates.TemplateResponse(
         "index.html",
-        dict(
-            request=request, links=links, page=page, count=db_utils.get_count()["pages"]
-        ),
+        {
+            "request": request,
+            "links": links,
+            "page": page,
+            "count": db_utils.get_count()["pages"],
+            "version": config["app_version"],
+            "name": config["app_name"],
+        },
     )
 
 
@@ -89,9 +95,9 @@ async def search(request: Request, text: str):
     print(text)
     links = db_utils.search_links(text)
     return templates.TemplateResponse(
-        "links.html",
-        {"request": request, "links": links, "search_term": text},
+        "links.html", {"request": request, "links": links, "search_term": text}
     )
+
 
 # add a new link
 @app.get("/add", response_class=HTMLResponse)
