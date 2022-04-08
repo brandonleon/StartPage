@@ -246,14 +246,10 @@ def decrement_rank(max_rank: int = 1000) -> bool:
     total_rank = cur.fetchone()[0]
     # total_rank will be None if there are no links in the database.
     # Check if total_rank is greater than max_rank.
-    if total_rank is not None:
-        if total_rank >= max_rank:
-            print(
-                f"INFO:\tThe sum of ranks is greater than max rank ({max_rank}), decrementing all ranks."
-            )
-            cur.execute("UPDATE links SET rank = rank * 0.99")
-            con.commit()
-            return True
+    if total_rank is not None and total_rank >= max_rank:
+        cur.execute("UPDATE links SET rank = rank * 0.99")
+        con.commit()
+        return True
     return False
 
 

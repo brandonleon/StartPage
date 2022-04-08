@@ -36,11 +36,8 @@ templates = Jinja2Templates(directory="templates")
 
 # get first page of links
 @app.get("/", response_class=HTMLResponse)
-async def root(background_tasks: BackgroundTasks, request: Request, page: int = 0):
+async def root(request: Request, page: int = 0):
     links = db_utils.get_links(page)
-    background_tasks.add_task(
-        db_utils.decrement_rank, 1000
-    )  # TODO: Change max_rank to a config value in the database.
     return templates.TemplateResponse(
         "index.html",
         {
@@ -113,8 +110,12 @@ async def add_link(link_name: str = Form(...), link_url: str = Form(...)):
 
 # Redirect to the url of the link
 @app.get("/redirect/{link_id}")
-async def redirect(link_id):
-    return RedirectResponse(db_utils.get_link(link_id)[2])
+async def redirect(background_tasks: BackgroundTasks, link_id):
+    link = db_utils.get_link(link_id)[2]
+    background_tasks.add_task(
+        db_utils.decrement_rank, 1000
+    )  # TODO: Change max_rank to a config value in the database.
+    return RedirectResponse(link, status_code=301)
 
 
 # edit individual link
