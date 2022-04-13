@@ -11,7 +11,7 @@ import services.db_utils as db_utils
 # Initialize the database, with the current app version.
 db_utils.init_db("1")
 
-config = {}
+config = {} # Global config dictionary, str: object, or str: str.
 
 # Read config values from the database, if they exist.
 # else set version to 0.0
@@ -32,9 +32,6 @@ app = FastAPI()
 
 # set up the templates
 templates = Jinja2Templates(directory="templates")
-
-
-print(f"{config = }")
 
 # get first page of links
 @app.get("/", response_class=HTMLResponse)
