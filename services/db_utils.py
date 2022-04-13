@@ -109,8 +109,7 @@ def delete_link(link_id: str) -> bool:
     con = sqlite3.connect(db_path)
     with con as cur:
         cur.execute("DELETE FROM links WHERE id = :link_id", {"link_id": link_id})
-        return True
-    return False
+        return cur.rowcount == 1
 
 
 # initialize database
@@ -123,6 +122,8 @@ def init_db(cur_version: str) -> None:
     Returns:
         None: None.
     """
+    schema = f"db_v{cur_version}.sql"
+
     if not isdir(dirname(db_path)):
         mkdir(dirname(db_path))
 
@@ -135,7 +136,7 @@ def init_db(cur_version: str) -> None:
     result = cur.fetchone()
     if result is None:
         with open(
-            join(realpath(join(dirname(__file__), "../sql_scripts", "db_v1.sql"))), "r"
+            join(realpath(join(dirname(__file__), "../sql_scripts", schema))), "r"
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
@@ -187,7 +188,6 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
                 },
             )
             return True
-    return False
 
 
 # Read config from data
@@ -203,6 +203,9 @@ def read_config() -> Dict[str, str]:
     cur = con.cursor()
     cur.execute("SELECT name, value fROM metadata;")
     d = {row["name"]: row["value"] for row in cur.fetchall()}
+
+    cur.execute("SELECT name, value FROM config")
+    d |= {row["name"]: row["value"] for row in cur.fetchall()}
     con.close()
     return d
 
@@ -287,5 +290,4 @@ def search_links(query: str) -> List[Dict[str, str]]:
     )
     rows = cur.fetchall()
     con.close()
-    result = [{"id": row["id"], "name": row["name"], "url": row["url"]} for row in rows]
-    return result
+    return [{"id": row["id"], "name": row["name"], "url": row["url"]} for row in rows]
