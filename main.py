@@ -11,7 +11,7 @@ import services.db_utils as db_utils
 # Initialize the database, with the current app version.
 db_utils.init_db("1")
 
-config = {} # Global config dictionary, str: object, or str: str.
+config = {}  # Global config dictionary, str: object, or str: str.
 
 # Read config values from the database, if they exist.
 # else set version to 0.0
@@ -33,15 +33,16 @@ app = FastAPI()
 # set up the templates
 templates = Jinja2Templates(directory="templates")
 
+
 # get first page of links
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, page: int = 0):
-    links = db_utils.get_links(page)
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
-            "links": links,
+            "links": lks,
             "page": page,
             "count": db_utils.get_count()["pages"],
             "version": config["app_version"],
@@ -53,12 +54,12 @@ async def root(request: Request, page: int = 0):
 # Dashboard
 @app.get("/dashboard/", response_class=HTMLResponse)
 async def dashboard(request: Request, page: int = 0):
-    links = db_utils.get_links(page)
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
-            "links": links,
+            "links": lks,
             "page": page,
             "count": db_utils.get_count()["count"],
         },
@@ -68,29 +69,29 @@ async def dashboard(request: Request, page: int = 0):
 # get next page of links for infinite scroll
 @app.get("/links/{page}", response_class=HTMLResponse)
 async def links(request: Request, page: int):
-    links = db_utils.get_links(page)
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "links.html",
-        {"request": request, "links": links, "page": page, "next_page": page + 1},
+        {"request": request, "links": lks, "page": page, "next_page": page + 1},
     )
 
 
 # get next page of links for infinite scroll
 @app.get("/dashboard_items/{page}", response_class=HTMLResponse)
 async def links(request: Request, page: int):
-    links = db_utils.get_links(page)
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard_items.html",
-        {"request": request, "links": links, "page": page, "next_page": page + 1},
+        {"request": request, "links": lks, "page": page, "next_page": page + 1},
     )
 
 
 # search for links:
 @app.get("/search", response_class=HTMLResponse)
 async def search(request: Request, text: str):
-    links = db_utils.search_links(text)
+    lks = db_utils.search_links(text)
     return templates.TemplateResponse(
-        "links.html", {"request": request, "links": links, "search_term": text}
+        "links.html", {"request": request, "links": lks, "search_term": text}
     )
 
 
