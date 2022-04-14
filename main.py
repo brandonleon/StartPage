@@ -45,7 +45,6 @@ async def root(request: Request, page: int = 0):
             "request": request,
             "links": lks,
             "page": page,
-            "count": db_utils.get_count()["pages"],
             "version": config["app_version"],
             "name": config["app_name"],
         },
@@ -61,8 +60,7 @@ async def dashboard(request: Request, page: int = 0):
         {
             "request": request,
             "links": lks,
-            "page": page,
-            "count": db_utils.get_count()["count"],
+            "page": page
         },
     )
 

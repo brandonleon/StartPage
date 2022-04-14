@@ -12,25 +12,6 @@ import tomlkit
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
-# Get count of links in database
-# Used for pagination
-def get_count(batch: Optional[int] = 20) -> Dict[str, int]:
-    """
-    Get count of links in database.
-
-    Parameters:
-        batch (Optional[int]): Number of links to return per page.
-
-    Returns:
-        Dict[str, int]: Count of links, and number of pages.
-    """
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    cur.execute("SELECT COUNT(*) fROM links")
-    count = cur.fetchone()[0]
-    con.close()
-    return {"count": count, "pages": floor(count / batch)}
-
 
 # Get individual link
 def get_link(link_id: str) -> sqlite3.Row:
@@ -61,7 +42,7 @@ def get_link(link_id: str) -> sqlite3.Row:
 
 
 # Get links in batches of 20
-def get_links(page: int = 0, batch: int = 20):
+def get_links(page: int = 0, batch: int = 20) -> List[dict]:
     """
     Get links in batches of n, or 20 if n not supplied.
 
