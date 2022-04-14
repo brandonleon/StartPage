@@ -79,7 +79,9 @@ def get_links(page: int = 0, batch: int = 20):
 
     cur = con.cursor()
     cur.execute(
-        "SELECT id, url, name, rank, accessed fROM links ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC LIMIT :page, :batch;",
+        "SELECT id, url, name, rank, accessed fROM links "
+        "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC "
+        "LIMIT :page, :batch;",
         {"page": page, "batch": batch},
     )
     rows = cur.fetchall()
@@ -285,7 +287,10 @@ def search_links(query: str) -> List[Dict[str, str]]:
 
     cur = con.cursor()
     cur.execute(
-        "SELECT id, name, url FROM links WHERE name LIKE :query OR url LIKE :query",
+        "SELECT id, name, url "
+        "FROM links "
+        "WHERE name LIKE :query OR url LIKE :query "
+        "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC",
         {"query": f"%{query}%"},
     )
     rows = cur.fetchall()
