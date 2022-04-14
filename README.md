@@ -1,7 +1,10 @@
 StartPage is a SelfHosted dynamic collection of links. Intended purpose is to run this application locally and then use it as your browsers start-page.
 
-The list is dynamically ordered based on usage.
+The list is dynamically ordered based on frecency.
 
+Frecency is a portmanteau of 'recent' and 'frequency'. It is a weighted rank that depends on how often and how recently something occurred. As far as I know, Mozilla came up with the term.
+
+To the application, a link that has a low ranking but has been recently accessed will quickly have higher scoes than a link that is accessed frequently but not recently.
 ## Virtual environment Installation (if you want to modify code).
 1. Ensure you have poetry installed.
    ``` shell
