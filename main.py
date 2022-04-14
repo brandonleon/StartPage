@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from packaging.version import parse
 
 import services.db_utils as db_utils
+import services.app_config as app_config
 
 # Initialize the database, with the current app version.
 db_utils.init_db("1")
