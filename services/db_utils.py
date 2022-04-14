@@ -79,7 +79,7 @@ def get_links(page: int = 0, batch: int = 20):
 
     cur = con.cursor()
     cur.execute(
-        "SELECT id, url, name, rank, accessed fROM links ORDER BY rank DESC LIMIT :page, :batch;",
+        "SELECT id, url, name, rank, accessed fROM links ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC LIMIT :page, :batch;",
         {"page": page, "batch": batch},
     )
     rows = cur.fetchall()
