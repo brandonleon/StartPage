@@ -92,7 +92,7 @@ def delete_link(link_id: str) -> bool:
     con = sqlite3.connect(db_path)
     with con as cur:
         cur.execute("DELETE FROM links WHERE id = :link_id", {"link_id": link_id})
-        return cur.rowcount == 1
+        return True
 
 
 # initialize database
