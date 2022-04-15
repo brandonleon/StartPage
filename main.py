@@ -121,7 +121,7 @@ async def redirect(background_tasks: BackgroundTasks, link_id):
 @app.get("/edit/{link_id}", response_class=HTMLResponse)
 async def edit(request: Request, link_id):
     return templates.TemplateResponse(
-        "edit.html", {"request": request, "link": db_utils.get_link(link_id)}
+        "edit.html", {"request": request, "link": db_utils.get_link(link_id, False)}
     )
 
 

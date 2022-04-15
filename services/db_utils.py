@@ -14,13 +14,13 @@ db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
 # Get individual link
-def get_link(link_id: str) -> sqlite3.Row:
+def get_link(link_id: str, increment_rank: bool = True) -> sqlite3.Row:
     """
     Get link by id.
 
     Parameters:
         link_id (str): Link id.
-
+        increment_rank (bool): Increment link rank after selecting.
     Returns:
         Sqlite3.Row: Link.
     """
@@ -31,12 +31,13 @@ def get_link(link_id: str) -> sqlite3.Row:
         "SELECT id, name, url fROM links WHERE id = :link_id", {"link_id": link_id}
     )
     link = cur.fetchone()
-    # update accessed time and rank
-    cur.execute(
-        "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
-        {"accessed": int(time()), "link_id": link_id},
-    )
-    con.commit()
+        # update accessed time and rank
+    if increment_rank:
+        cur.execute(
+            "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
+            {"accessed": int(time()), "link_id": link_id},
+        )
+        con.commit()
     con.close()
     return link
 
