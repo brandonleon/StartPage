@@ -133,10 +133,10 @@ async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(..
 
 
 # delete individual link
-@app.get("/delete/{link_id}", response_class=HTMLResponse)
-async def delete(link_id):
-    db_utils.delete_link(link_id)
-    return RedirectResponse("/dashboard/")
+@app.delete("/delete/{link_id}", response_class=HTMLResponse)
+async def delete(request: Request, link_id):
+    # db_utils.delete_link(link_id)
+    return templates.TemplateResponse("delete.html", {"request": request})
 
 
 # start the server
