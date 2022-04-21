@@ -14,7 +14,7 @@ db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
 # Get individual link
-def get_link(link_id: str, increment_rank: bool = True) -> sqlite3.Row:
+def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
     """
     Get link by id.
 

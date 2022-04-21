@@ -110,7 +110,7 @@ async def add_link(link_name: str = Form(...), link_url: str = Form(...)):
 # Redirect to the url of the link
 @app.get("/redirect/{link_id}")
 async def redirect(background_tasks: BackgroundTasks, link_id):
-    link = db_utils.get_link(link_id)[2]
+    link = db_utils.get_link(link_id, True)[2]
     background_tasks.add_task(
         db_utils.decrement_rank, 1000
     )  # TODO: Change max_rank to a config value in the database.
