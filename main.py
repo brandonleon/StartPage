@@ -114,7 +114,7 @@ async def redirect(background_tasks: BackgroundTasks, link_id):
     background_tasks.add_task(
         db_utils.decrement_rank, 1000
     )  # TODO: Change max_rank to a config value in the database.
-    return RedirectResponse(link, status_code=301)
+    return RedirectResponse(link, status_code=302)
 
 
 # edit individual link
