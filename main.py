@@ -7,12 +7,15 @@ from fastapi.templating import Jinja2Templates
 from packaging.version import parse
 
 import services.db_utils as db_utils
-import services.app_config as app_config
+import services.app_config as ap
 
 # Initialize the database, with the current app version.
 db_utils.init_db("1")
 
 config = {}  # Global config dictionary, str: object, or str: str.
+app_config = ap.AppConfig(
+    "1.0.0",
+)
 
 # Read config values from the database, if they exist.
 # else set version to 0.0
@@ -26,7 +29,9 @@ config["app_version"] = parse(db_utils.get_app_metadata()["version"])
 config["app_name"] = db_utils.get_app_metadata()["name"]
 
 if config["app_version"].major != config["db_version"].major:
-    db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
+    db_utils.upgrade_db(
+        config["db_version"].major, config["app_version"].major
+    )
 
 # Create the app
 app = FastAPI()
@@ -57,11 +62,7 @@ async def dashboard(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard.html",
-        {
-            "request": request,
-            "links": lks,
-            "page": page
-        },
+        {"request": request, "links": lks, "page": page},
     )
 
 
@@ -71,7 +72,12 @@ async def links(request: Request, page: int):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "links.html",
-        {"request": request, "links": lks, "page": page, "next_page": page + 1},
+        {
+            "request": request,
+            "links": lks,
+            "page": page,
+            "next_page": page + 1,
+        },
     )
 
 
@@ -81,7 +87,12 @@ async def links(request: Request, page: int):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard_items.html",
-        {"request": request, "links": lks, "page": page, "next_page": page + 1},
+        {
+            "request": request,
+            "links": lks,
+            "page": page,
+            "next_page": page + 1,
+        },
     )
 
 
@@ -121,13 +132,16 @@ async def redirect(background_tasks: BackgroundTasks, link_id):
 @app.get("/edit/{link_id}", response_class=HTMLResponse)
 async def edit(request: Request, link_id):
     return templates.TemplateResponse(
-        "edit.html", {"request": request, "link": db_utils.get_link(link_id, False)}
+        "edit.html",
+        {"request": request, "link": db_utils.get_link(link_id, False)},
     )
 
 
 # process the edit link form
 @app.post("/edit/{link_id}", response_class=HTMLResponse)
-async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(...)):
+async def edit_link(
+    link_id, link_name: str = Form(...), link_url: str = Form(...)
+):
     db_utils.save_link(link_name, link_url, link_id)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
