@@ -1,21 +1,19 @@
 import sqlite3
 
 import uvicorn
-from fastapi import FastAPI, Form, Request, BackgroundTasks
+from fastapi import BackgroundTasks, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from packaging.version import parse
 
-import services.db_utils as db_utils
 import services.app_config as ap
+import services.db_utils as db_utils
 
 # Initialize the database, with the current app version.
 db_utils.init_db("1")
 
 config = {}  # Global config dictionary, str: object, or str: str.
-app_config = ap.AppConfig(
-    "1.0.0",
-)
+# app_config = ap.AppConfig("1.0.0", db)
 
 # Read config values from the database, if they exist.
 # else set version to 0.0
@@ -29,9 +27,7 @@ config["app_version"] = parse(db_utils.get_app_metadata()["version"])
 config["app_name"] = db_utils.get_app_metadata()["name"]
 
 if config["app_version"].major != config["db_version"].major:
-    db_utils.upgrade_db(
-        config["db_version"].major, config["app_version"].major
-    )
+    db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
 
 # Create the app
 app = FastAPI()
@@ -139,9 +135,7 @@ async def edit(request: Request, link_id):
 
 # process the edit link form
 @app.post("/edit/{link_id}", response_class=HTMLResponse)
-async def edit_link(
-    link_id, link_name: str = Form(...), link_url: str = Form(...)
-):
+async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(...)):
     db_utils.save_link(link_name, link_url, link_id)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
