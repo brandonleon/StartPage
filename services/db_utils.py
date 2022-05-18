@@ -12,7 +12,6 @@ import tomlkit
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
-
 # Get individual link
 def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
     """
@@ -31,7 +30,7 @@ def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
         "SELECT id, name, url fROM links WHERE id = :link_id", {"link_id": link_id}
     )
     link = cur.fetchone()
-        # update accessed time and rank
+    # update accessed time and rank
     if increment_rank:
         cur.execute(
             "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
@@ -234,6 +233,9 @@ def decrement_rank(max_rank: int = 1000) -> bool:
     # total_rank will be None if there are no links in the database.
     # Check if total_rank is greater than max_rank.
     if total_rank is not None and total_rank >= max_rank:
+        print(
+            "INFO:     Sum of all ranks is greater than max rank, decrementing all ranks."
+        )
         cur.execute("UPDATE links SET rank = rank * 0.99")
         con.commit()
         return True
