@@ -17,6 +17,7 @@ aiofiles = "^0.8.0"
 timeago = "^1.0.15"
 python-multipart = "^0.0.5"
 tomlkit = "^0.10.1"
+pytest-sugar = "^0.9.4"
 
 [tool.poetry.dev-dependencies]
 pytest-playwright = "^0.3.0"
