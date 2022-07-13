@@ -12,7 +12,7 @@
                 <div class="card h-100">
                   <div class="card-body">
                     <h5 id="card-title">{{ link.name }}</h5>
-                    <p class="card-text">{{ link.url }} <br />Rank: {{ link.rank | round(2) }}</p>
+                    <p class="card-text">{{ link.url|truncate(255) }} <br />Rank: {{ link.rank | round(2) }}</p>
                     <a class="btn btn-primary" href="/edit/{{ link.id }}" role="button">Edit</a>
                     <a class="btn btn-danger" hx-confirm="Delete {{ link.name }}?" hx-target="closest #card" hx-swap="outerHTML" hx-delete="/delete/{{ link.id }}" role="button">Delete</a>
                   </div>
