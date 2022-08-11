@@ -271,7 +271,7 @@ def search_links(query: str) -> List[Dict[str, str]]:
 
     cur = con.cursor()
     cur.execute(
-        "SELECT id, name, url "
+        "SELECT id, name, url, rank "
         "FROM links "
         "WHERE name LIKE :query OR url LIKE :query "
         "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC",
@@ -279,4 +279,7 @@ def search_links(query: str) -> List[Dict[str, str]]:
     )
     rows = cur.fetchall()
     con.close()
-    return [{"id": row["id"], "name": row["name"], "url": row["url"]} for row in rows]
+    return [
+        {"id": row["id"], "name": row["name"], "url": row["url"], "rank": row["rank"]}
+        for row in rows
+    ]
