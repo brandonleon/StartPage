@@ -1,5 +1,4 @@
 import sqlite3
-from math import floor
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
 from time import time
@@ -231,12 +230,15 @@ def decrement_rank(max_rank: int = 1000) -> bool:
     cur.execute("SELECT sum(rank) FROM links")
     total_rank = cur.fetchone()[0]
     # total_rank will be None if there are no links in the database.
-    # Check if total_rank is greater than max_rank.
+    # Check if total_rank is greater than max_rank,
+    # If so, remove any items with a rank below 1 and decrement the rest by 1%.
     if total_rank is not None and total_rank >= max_rank:
         print(
             "INFO:     Sum of all ranks is greater than max rank, decrementing all ranks."
         )
-        cur.execute("UPDATE links SET rank = rank * 0.99")
+        cur.executescript(
+            "DELETE from links WHERE rank < 1; UPDATE links SET rank = rank * 0.99;"
+        )
         con.commit()
         return True
     return False
