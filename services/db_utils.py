@@ -26,7 +26,8 @@ def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     cur.execute(
-        "SELECT id, name, url fROM links WHERE id = :link_id", {"link_id": link_id}
+        "SELECT id, name, url fROM links WHERE id = :link_id",
+        {"link_id": link_id},
     )
     link = cur.fetchone()
     # update accessed time and rank
@@ -90,7 +91,9 @@ def delete_link(link_id: str) -> bool:
     """
     con = sqlite3.connect(db_path)
     with con as cur:
-        cur.execute("DELETE FROM links WHERE id = :link_id", {"link_id": link_id})
+        cur.execute(
+            "DELETE FROM links WHERE id = :link_id", {"link_id": link_id}
+        )
         return True
 
 
@@ -114,11 +117,14 @@ def init_db(cur_version: str) -> None:
 
     con = sqlite3.connect(db_path)
     cur = con.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='links';")
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='links';"
+    )
     result = cur.fetchone()
     if result is None:
         with open(
-            join(realpath(join(dirname(__file__), "../sql_scripts", schema))), "r"
+            join(realpath(join(dirname(__file__), "../sql_scripts", schema))),
+            "r",
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
@@ -208,22 +214,24 @@ def upgrade_db(cur_version: str, desired_version: str) -> None:
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     with open(
-        join(realpath(join(dirname(__file__), "../sql_scripts", migration_script))), "r"
+        join(
+            realpath(
+                join(dirname(__file__), "../sql_scripts", migration_script)
+            )
+        ),
+        "r",
     ) as sql_file:
         cur.executescript(sql_file.read())
         con.commit()
 
 
 # Decrement the rank of all links when the sum of ranks is greater than the max rank.
-def decrement_rank(max_rank: int = 1000) -> bool:
+def decrement_rank(max_rank: int = 1000) -> None:
     """
     Decrement the rank of all links when the sum of ranks is greater than the max rank.
 
     Parameters:
         max_rank (int): Maximum rank.
-
-    Returns:
-        None: None.
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -240,8 +248,6 @@ def decrement_rank(max_rank: int = 1000) -> bool:
             "DELETE from links WHERE rank < 1; UPDATE links SET rank = rank * 0.99;"
         )
         con.commit()
-        return True
-    return False
 
 
 # Get application metadata from pyproject.toml file.
@@ -252,7 +258,9 @@ def get_app_metadata() -> Dict[str, str]:
     Returns:
         Dict[str, str]: Application metadata.
     """
-    with open(join(realpath(join(dirname(__file__), "../pyproject.toml")))) as f:
+    with open(
+        join(realpath(join(dirname(__file__), "../pyproject.toml")))
+    ) as f:
         f = f.read()
         return tomlkit.parse(f)["tool"]["poetry"]
 
@@ -282,6 +290,11 @@ def search_links(query: str) -> List[Dict[str, str]]:
     rows = cur.fetchall()
     con.close()
     return [
-        {"id": row["id"], "name": row["name"], "url": row["url"], "rank": row["rank"]}
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "url": row["url"],
+            "rank": row["rank"],
+        }
         for row in rows
     ]
