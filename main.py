@@ -27,7 +27,9 @@ config["app_version"] = parse(db_utils.get_app_metadata()["version"])
 config["app_name"] = db_utils.get_app_metadata()["name"]
 
 if config["app_version"].major != config["db_version"].major:
-    db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
+    db_utils.upgrade_db(
+        config["db_version"].major, config["app_version"].major
+    )
 
 # Create the app
 app = FastAPI()
@@ -58,7 +60,12 @@ async def dashboard(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "links": lks, "page": page},
+        {
+            "request": request,
+            "links": lks,
+            "page": page,
+            "version": config["app_version"],
+        },
     )
 
 
@@ -135,7 +142,9 @@ async def edit(request: Request, link_id):
 
 # process the edit link form
 @app.post("/edit/{link_id}", response_class=HTMLResponse)
-async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(...)):
+async def edit_link(
+    link_id, link_name: str = Form(...), link_url: str = Form(...)
+):
     db_utils.save_link(link_name, link_url, link_id)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
