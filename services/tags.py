@@ -1,8 +1,10 @@
 import sqlite3
+from os.path import dirname, join, realpath
+from typing import Optional
 
 from uuid import uuid4
 
-from services.db_utils import db_path
+db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
 class Tag:
@@ -18,7 +20,8 @@ class Tag:
     name: The tag name.
     count: The number of times the tag is used.
     """
-    def __init__(self, name: str):
+
+    def __init__(self, name: str, link_id: Optional[str] = None):
         """
         Creates a new tag, or loads an existing tag.
 
@@ -26,6 +29,7 @@ class Tag:
         name (str): The tag name.
         """
         self.name = name
+        self.link_id = link_id or None
 
         con = sqlite3.connect(db_path)
         con.row_factory = sqlite3.Row
@@ -44,6 +48,20 @@ class Tag:
                     "INSERT INTO tags (id, name, count) VALUES (:id, :name, 1)",
                     {"id": self.id, "name": self.name},
                 )
+
+        # If a link_id is supplied, add the tag and link to the tag_link_map table.
+        if self.link_id:
+            cur.execute(
+                "SELECT tag_id, link_id FROM tag_link_map WHERE tag_id = :tag_id AND link_id = :link_id LIMIT 1",
+                {"tag_id": self.id, "link_id": self.link_id},
+            )
+            if not cur.fetchone():
+                with con as cur:
+                    cur.execute(
+                        "INSERT INTO tag_link_map (tag_id, link_id) VALUES (:tag_id, :link_id)",
+                        {"tag_id": self.id, "link_id": self.link_id},
+                    )
+            self.update_count()
 
     # Update the tag count
     def update_count(self) -> int:
@@ -68,3 +86,21 @@ class Tag:
             )
 
         return count
+
+    # When deleting a tag, purge all references to it from the tag_link_map, and tags table.
+    def delete(self) -> None:
+        """
+        Deletes the tag from the database.
+        """
+        con = sqlite3.connect(db_path)
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute(
+            "DELETE FROM tag_link_map WHERE tag_id = :id",
+            {"id": self.id},
+        )
+        cur.execute(
+            "DELETE FROM tags WHERE id = :id",
+            {"id": self.id},
+        )
+        con.close()

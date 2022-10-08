@@ -8,6 +8,8 @@ from uuid import uuid4
 import timeago
 import tomlkit
 
+from services.tags import Tag
+
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
@@ -131,7 +133,7 @@ def init_db(cur_version: str) -> None:
 
 
 # add link to database
-def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
+def save_link(name: str, url: str, link_id: Optional[str] = None, tags: Optional[list] = None) -> bool:
     """
     Save link to database, or update existing link with a new name or url.
 
@@ -142,10 +144,25 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
         name (str): Link name.
         url (str): Link url.
         link_id (Optional[str]): Link id.
+        tags (Optional[list]): List of tags.
 
     Returns:
         bool: True if link was saved, False if link was not saved.
     """
+
+    uuid = str(uuid4())
+
+    if tags:
+        # split tags by comma and remove whitespace and convert to lowercase
+        tags = [tag.strip().lower() for tag in tags.split(",")]
+
+        # remove duplicates
+        tags = list(set(tags))
+
+        # save tags to database
+        for tag in tags:
+            tag = Tag(tag, uuid)
+
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     if link_id is None:
@@ -157,7 +174,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
             cur.execute(
                 "INSERT INTO links (id, url, name, rank, accessed) VALUES (:id, :url, :name, :rank, :accessed)",
                 {
-                    "id": str(uuid4()),
+                    "id": uuid,
                     "url": url,
                     "name": name,
                     "rank": rank,

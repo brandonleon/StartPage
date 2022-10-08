@@ -121,8 +121,8 @@ async def add_display(request: Request):
 
 # process the new link
 @app.post("/add", response_class=HTMLResponse)
-async def add_link(link_name: str = Form(...), link_url: str = Form(...)):
-    db_utils.save_link(link_name, link_url)
+async def add_link(link_name: str = Form(...), link_url: str = Form(...), link_tags: str = Form(...)):
+    db_utils.save_link(link_name, link_url, tags=link_tags)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
 
