@@ -147,8 +147,8 @@ async def edit(request: Request, link_id):
 
 # process the edit link form
 @app.post("/edit/{link_id}", response_class=HTMLResponse)
-async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(...)):
-    db_utils.save_link(link_name, link_url, link_id)
+async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(...), link_tags: str = Form(...)):
+    db_utils.save_link(link_name, link_url, link_id, tags=link_tags)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
 
