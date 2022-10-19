@@ -64,7 +64,7 @@ class Tag:
             self.update_count()
 
     # Update the tag count
-    def update_count(self) -> int:
+    def update_count(self):
         """
         Counts the number of times the tag is used, and updates the count column on the tags table.
         return: int: The new tag count.
@@ -85,8 +85,6 @@ class Tag:
                 {"id": self.id, "count": count},
             )
 
-        return count
-
     # When deleting a tag, purge all references to it from the tag_link_map, and tags table.
     def delete(self) -> None:
         """
@@ -104,3 +102,33 @@ class Tag:
             {"id": self.id},
         )
         con.close()
+
+    # When deleting a link, purge all references to it from the tag_link_map.
+    def delete_link(self) -> None:
+        """
+        Deletes the link from the database.
+        """
+        con = sqlite3.connect(db_path)
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute(
+            "DELETE FROM tag_link_map WHERE link_id = :id",
+            {"id": self.link_id},
+        )
+        con.close()
+
+    @property
+    def count(self) -> int:
+        """
+        Returns the number of times the tag is used.
+        return: int: The tag count.
+        """
+        con = sqlite3.connect(db_path)
+        con.row_factory = sqlite3.Row
+        cur = con.cursor()
+        cur.execute(
+            "SELECT count FROM tags WHERE id = :id LIMIT 1",
+            {"id": self.id},
+        )
+
+        return cur.fetchone()["count"]
