@@ -43,7 +43,7 @@ def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
     return link
 
 
-# Get links in batches of 20
+# Get links in batches of n, starting at offset
 def get_links(page: int = 0, batch: int = 20) -> List[dict]:
     """
     Get links in batches of n, or 20 if n not supplied.
