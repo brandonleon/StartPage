@@ -5,7 +5,7 @@ description = ""
 authors = ["Brandon Leon <brandonleon@pm.me>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 python-dotenv = "^0.19.2"
 pytest = "^7.0.1"
 timeflake = "^0.4.2"
@@ -17,6 +17,8 @@ aiofiles = "^0.8.0"
 timeago = "^1.0.15"
 python-multipart = "^0.0.5"
 tomlkit = "^0.10.1"
+pytest-sugar = "^0.9.5"
+uvloop = "^0.17.0"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.941"
