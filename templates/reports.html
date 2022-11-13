@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+{% include 'header.html' %}
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="row">
+    <div class="col-sm"></div>
+    <div class="col-sm">
+        <ul class="list-group list-group-flush" id="search-results">
+            {% for link in links %}
+                <li class="list-group-item lh-1"{% if loop.index == 20 %} hx-get="/links/1" hx-trigger="revealed" hx-swap="afterend"{% endif %}><a href="/redirect/{{ link.id }}" target="_blank" data-bs-toggle="tooltip" data-bs-placement="left"
+                       data-bs-delay="200" title="{{ link.url }}">{{ link.name }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="col-sm"></div>
+</div>
+
+<div class="container">
+  <footer class="d-flex flex-wrap justify-content-between align-items-center py-3 my-4 border-top">
+    <div class="col-md-4 d-flex align-items-center">
+      <a href="/" class="mb-3 me-2 mb-md-0 text-muted text-decoration-none lh-1">
+        <svg class="bi" width="30" height="24"><use xlink:href="#bootstrap"/></svg>
+      </a>
+      <span class="text-muted">&copy; {{ datecat  }} {{ name }}</span>
+    </div>
+
+    <ul class="nav col-md-4 justify-content-end list-unstyled d-flex">
+      <li class="ms-3">Version: {{ version }}</li>
+    </ul>
+  </footer>
+</div>
+
+{% include 'footer.html' %}
+
+</body>
+</html>

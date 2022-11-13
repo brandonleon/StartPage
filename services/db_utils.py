@@ -1,45 +1,26 @@
 import sqlite3
-from math import floor
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
 from time import time
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional
 from uuid import uuid4
 
 import timeago
 import tomlkit
 
+from services.tags import Tag
+
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 
-# Get count of links in database
-# Used for pagination
-def get_count(batch: Optional[int] = 20) -> Dict[str, int]:
-    """
-    Get count of links in database.
-
-    Parameters:
-        batch (Optional[int]): Number of links to return per page.
-
-    Returns:
-        Dict[str, int]: Count of links, and number of pages.
-    """
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    cur.execute("SELECT COUNT(*) fROM links")
-    count = cur.fetchone()[0]
-    con.close()
-    return {"count": count, "pages": floor(count / batch)}
-
-
 # Get individual link
-def get_link(link_id: str) -> sqlite3.Row:
+def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
     """
     Get link by id.
 
     Parameters:
         link_id (str): Link id.
-
+        increment_rank (bool): Increment link rank after selecting.
     Returns:
         Sqlite3.Row: Link.
     """
@@ -47,21 +28,23 @@ def get_link(link_id: str) -> sqlite3.Row:
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     cur.execute(
-        "SELECT id, name, url fROM links WHERE id = :link_id", {"link_id": link_id}
+        "SELECT id, name, url fROM links WHERE id = :link_id",
+        {"link_id": link_id},
     )
     link = cur.fetchone()
     # update accessed time and rank
-    cur.execute(
-        "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
-        {"accessed": int(time()), "link_id": link_id},
-    )
-    con.commit()
+    if increment_rank:
+        cur.execute(
+            "UPDATE links SET accessed = :accessed, rank = rank + 1 WHERE id = :link_id",
+            {"accessed": int(time()), "link_id": link_id},
+        )
+        con.commit()
     con.close()
     return link
 
 
-# Get links in batches of 20
-def get_links(page: int = 0, batch: int = 20):
+# Get links in batches of n, starting at offset
+def get_links(page: int = 0, batch: int = 20) -> List[dict]:
     """
     Get links in batches of n, or 20 if n not supplied.
 
@@ -79,10 +62,13 @@ def get_links(page: int = 0, batch: int = 20):
 
     cur = con.cursor()
     cur.execute(
-        "SELECT id, url, name, rank, accessed fROM links ORDER BY rank DESC LIMIT :page, :batch;",
+        "SELECT id, url, name, rank, accessed fROM links "
+        "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC "
+        "LIMIT :page, :batch;",
         {"page": page, "batch": batch},
     )
     rows = cur.fetchall()
+    con.close()
     return [
         dict(
             id=row["id"],
@@ -107,9 +93,10 @@ def delete_link(link_id: str) -> bool:
     """
     con = sqlite3.connect(db_path)
     with con as cur:
-        cur.execute("DELETE FROM links WHERE id = :link_id", {"link_id": link_id})
+        cur.execute(
+            "DELETE FROM links WHERE id = :link_id", {"link_id": link_id}
+        )
         return True
-    return False
 
 
 # initialize database
@@ -122,6 +109,8 @@ def init_db(cur_version: str) -> None:
     Returns:
         None: None.
     """
+    schema = f"db_v{cur_version}.sql"
+
     if not isdir(dirname(db_path)):
         mkdir(dirname(db_path))
 
@@ -130,18 +119,21 @@ def init_db(cur_version: str) -> None:
 
     con = sqlite3.connect(db_path)
     cur = con.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='links';")
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='links';"
+    )
     result = cur.fetchone()
     if result is None:
         with open(
-            join(realpath(join(dirname(__file__), "../sql_scripts", "db_v1.sql"))), "r"
+            join(realpath(join(dirname(__file__), "../sql_scripts", schema))),
+            "r",
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
 
 
 # add link to database
-def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
+def save_link(name: str, url: str, link_id: Optional[str] = None, tags: Optional[list] = None) -> bool:
     """
     Save link to database, or update existing link with a new name or url.
 
@@ -152,10 +144,25 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
         name (str): Link name.
         url (str): Link url.
         link_id (Optional[str]): Link id.
+        tags (Optional[list]): List of tags.
 
     Returns:
         bool: True if link was saved, False if link was not saved.
     """
+
+    uuid = str(uuid4())
+
+    if tags:
+        # split tags by comma and remove whitespace and convert to lowercase
+        tags = [tag.strip().lower() for tag in tags.split(",")]
+
+        # remove duplicates
+        tags = list(set(tags))
+
+        # save tags to database
+        for tag in tags:
+            tag = Tag(tag, uuid)
+
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     if link_id is None:
@@ -167,7 +174,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
             cur.execute(
                 "INSERT INTO links (id, url, name, rank, accessed) VALUES (:id, :url, :name, :rank, :accessed)",
                 {
-                    "id": str(uuid4()),
+                    "id": uuid,
                     "url": url,
                     "name": name,
                     "rank": rank,
@@ -186,7 +193,6 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
                 },
             )
             return True
-    return False
 
 
 # Read config from data
@@ -202,6 +208,9 @@ def read_config() -> Dict[str, str]:
     cur = con.cursor()
     cur.execute("SELECT name, value fROM metadata;")
     d = {row["name"]: row["value"] for row in cur.fetchall()}
+
+    cur.execute("SELECT name, value FROM config")
+    d |= {row["name"]: row["value"] for row in cur.fetchall()}
     con.close()
     return d
 
@@ -222,38 +231,40 @@ def upgrade_db(cur_version: str, desired_version: str) -> None:
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     with open(
-        join(realpath(join(dirname(__file__), "../sql_scripts", migration_script))), "r"
+        join(
+            realpath(
+                join(dirname(__file__), "../sql_scripts", migration_script)
+            )
+        ),
+        "r",
     ) as sql_file:
         cur.executescript(sql_file.read())
         con.commit()
 
 
 # Decrement the rank of all links when the sum of ranks is greater than the max rank.
-def decrement_rank(max_rank: int = 1000) -> bool:
+def decrement_rank(max_rank: int = 1000) -> None:
     """
     Decrement the rank of all links when the sum of ranks is greater than the max rank.
 
     Parameters:
         max_rank (int): Maximum rank.
-
-    Returns:
-        None: None.
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     cur.execute("SELECT sum(rank) FROM links")
     total_rank = cur.fetchone()[0]
     # total_rank will be None if there are no links in the database.
-    # Check if total_rank is greater than max_rank.
-    if total_rank is not None:
-        if total_rank >= max_rank:
-            print(
-                f"sum of ranks is greater than max rank ({max_rank}), decrementing all ranks"
-            )
-            cur.execute("UPDATE links SET rank = rank * 0.99")
-            con.commit()
-            return True
-    return False
+    # Check if total_rank is greater than max_rank,
+    # If so, remove any items with a rank below 1 and decrement the rest by 1%.
+    if total_rank is not None and total_rank >= max_rank:
+        print(
+            "INFO:     Sum of all ranks is greater than max rank, decrementing all ranks."
+        )
+        cur.executescript(
+            "DELETE from links WHERE rank < 1; UPDATE links SET rank = rank * 0.99;"
+        )
+        con.commit()
 
 
 # Get application metadata from pyproject.toml file.
@@ -264,6 +275,43 @@ def get_app_metadata() -> Dict[str, str]:
     Returns:
         Dict[str, str]: Application metadata.
     """
-    with open(join(realpath(join(dirname(__file__), "../pyproject.toml")))) as f:
+    with open(
+        join(realpath(join(dirname(__file__), "../pyproject.toml")))
+    ) as f:
         f = f.read()
         return tomlkit.parse(f)["tool"]["poetry"]
+
+
+# Search for links in the database.
+def search_links(query: str) -> List[Dict[str, str]]:
+    """
+    Search for links in the database.
+
+    Parameters:
+        query (str): Search query.
+
+    Returns:
+        List[Dict[str, str]]: Links.
+    """
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+
+    cur = con.cursor()
+    cur.execute(
+        "SELECT id, name, url, rank "
+        "FROM links "
+        "WHERE name LIKE :query OR url LIKE :query "
+        "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC",
+        {"query": f"%{query}%"},
+    )
+    rows = cur.fetchall()
+    con.close()
+    return [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "url": row["url"],
+            "rank": row["rank"],
+        }
+        for row in rows
+    ]

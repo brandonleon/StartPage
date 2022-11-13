@@ -16,8 +16,9 @@
                         Tools
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-
-                        <li><a class="dropdown-item" href="/update">Update / Delete</a></li>
+                        <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
+                        <li><a class="dropdown-item" href="/add">Add</a></li>
+                        <li><a class="dropdown-item" href="/reports">Reports</a></li>
                         <li><a class="dropdown-item disabled" href="/export">Export</a></li>
                         <!-- TODO: Still working on these functions -->
                         <li><a class="dropdown-item disabled" href="/import">Import</a></li>
@@ -25,6 +26,11 @@
                     </ul>
                 </li>
             </ul>
+            <form class="d-flex"><input class="form-control me-2" type="search"
+                name="text" placeholder="Search..."
+                hx-get="/search" hx-trigger="keyup changed delay:500ms, search"
+                hx-target="#search-results" hx-swap="innerHTML" hx-indicator=".htmx-indicator"></form>
+            </div>
         </div>
     </div>
 </nav>
