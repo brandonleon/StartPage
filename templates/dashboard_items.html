@@ -1,15 +1,20 @@
-        {% for link in links %}
-            <div class="col"{% if loop.last %} hx-get="/dashboard_items/{{ next_page }}" hx-trigger="revealed" hx-swap="afterend"{% endif %}>
-                <div class="card h-100">
-                  <div class="card-body">
-                    <h5 id="card-title">{{ link.name }}</h5>
-                    <p class="card-text">{{ link.url }} <br />Rank: {{ link.rank | round(2) }}</p>
-                    <a class="btn btn-primary" href="/edit/{{ link.id }}" role="button">Edit</a>
-                    <a class="btn btn-danger" href="/delete/{{ link.id }}" role="button">Delete</a>
-                  </div>
-                  <div class="card-footer">
-                    <small class="text-muted text-center">Last Used {{ link.accessed }}</small>
-                  </div>
-                </div>
-            </div>
-        {% endfor %}
+{% for link in links %}
+<div class="col" {% if loop.last %} hx-get="/dashboard_items/{{ next_page }}" hx-trigger="revealed" hx-swap="afterend" {% endif %}>
+  <div class="card h-100{% if link.rank < 1 %} text-dark bg-danger{% elif link.rank < 2.5 %} text-dark bg-warning{% endif %}">
+    {% if link.rank < 1 %}
+    <div class="card-header">Scheduled to be Deleted</div>
+    {% elif link.rank < 2.5 %}
+    <div class="card-header">Will be deleted if rank drops below 1.</div>
+    {% endif %}
+    <div class="card-body">
+      <h5 id="card-title">{{ link.name }}</h5>
+      <p class="card-text">{{ link.url }} <br />Rank: {{ link.rank | round(2) }}</p>
+      <a class="btn btn-primary" href="/edit/{{ link.id }}" role="button">Edit</a>
+      <a class="btn btn-danger" hx-confirm="Delete {{ link.name }}?" hx-target="closest #card" hx-swap="outerHTML" hx-delete="/delete/{{ link.id }}" role="button">Delete</a>
+    </div>
+    <div class="card-footer">
+      <small class="text-muted text-center">Last Used {{ link.accessed }}</small>
+    </div>
+  </div>
+</div>
+{% endfor %}

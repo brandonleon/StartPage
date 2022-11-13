@@ -1,79 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  {% include 'header.html' %}
 
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+  <body>
 
+    {% include 'navbar.html' %}
 
-
-    <title>StartPage - Links</title>
-</head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">StartPage</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="/">Home</a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Tools
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item disabled" href="/dashboard">Dashboard</a></li>
-                        <li><a class="dropdown-item" href="/add">Add</a></li>
-                        <li><a class="dropdown-item disabled" href="/export">Export</a></li>
-                        <!-- TODO: Still working on these functions -->
-                        <li><a class="dropdown-item disabled" href="/import">Import</a></li>
-                        <!-- TODO: Still working on these functions -->
-                    </ul>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-
-<div class="mx-2">
-    <div class="row row-cols-md-2 g-4">
+    <div class="mx-2">
+      <div class="row row-cols-md-2 g-4">
         {% for link in links %}
-            <div class="col" {% if loop.last %} hx-get="/dashboard_items/1" hx-trigger="revealed" hx-swap="afterend"{% endif %}>
-                <div class="card h-100">
-                  <div class="card-body">
-                    <h5 id="card-title">{{ link.name }}</h5>
-                    <p class="card-text">{{ link.url }} <br />Rank: {{ link.rank | round(2) }}</p>
-                    <a class="btn btn-primary" href="/edit/{{ link.id }}" role="button">Edit</a>
-                    <a class="btn btn-danger" href="/delete/{{ link.id }}" role="button">Delete</a>
-                  </div>
-                  <div class="card-footer">
-                    <small class="text-muted text-center">Last Used {{ link.accessed }}</small>
-                  </div>
-                </div>
+        <div id="card" class="col" {% if loop.last %} hx-get="/dashboard_items/1" hx-trigger="revealed" hx-swap="afterend" {% endif %}>
+          <div class="card h-100{% if link.rank < 1 %} text-dark bg-danger{% elif link.rank < 2.5 %} text-dark bg-warning{% endif %}">
+            {% if link.rank < 1.1 %}<div class="card-header">Will be deleted if rank drops below 1.</div>
+            {% elif link.rank < 2.5 %}<div class="card-header">Will be deleted if rank drops below 1.</div>
+            {% endif %}
+            <div class="card-body">
+              <h5 id="card-title">{{ link.name }}</h5>
+              <p class="card-text">{{ link.url|truncate(255) }} <br />Rank: {{ link.rank | round(2) }}</p>
+              <a class="btn btn-primary" href="/edit/{{ link.id }}" role="button">Edit</a>
+              <a class="btn btn-danger" hx-confirm="Delete {{ link.name }}?" hx-target="closest #card" hx-swap="outerHTML" hx-delete="/delete/{{ link.id }}" role="button">Delete</a>
             </div>
+            <div class="card-footer">
+              <small class="text-muted text-center">Last Used {{ link.accessed }}</small>
+            </div>
+          </div>
+        </div>
         {% endfor %}
+      </div>
     </div>
-</div>
 
-<script
-        src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
-        crossorigin="anonymous"
-></script>
-<script src="https://unpkg.com/htmx.org@1.7.0"></script>
-<script>var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-    return new bootstrap.Tooltip(tooltipTriggerEl)
-})
-</script>
-</body>
+    {% include 'footer.html' %}
+
+  </body>
+
 </html>

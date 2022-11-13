@@ -1,17 +1,20 @@
 import sqlite3
 
 import uvicorn
-from fastapi import FastAPI, Form, Request, BackgroundTasks
+from fastapi import BackgroundTasks, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from packaging.version import parse
+from starlette.responses import FileResponse
 
+import services.app_config as ap
 import services.db_utils as db_utils
 
 # Initialize the database, with the current app version.
-db_utils.init_db("1.0")
+db_utils.init_db("1")
 
-config = {}
+config = {}  # Global config dictionary, str: object, or str: str.
+# app_config = ap.AppConfig("1.0.0", db)
 
 # Read config values from the database, if they exist.
 # else set version to 0.0
@@ -22,6 +25,7 @@ except sqlite3.OperationalError:
     config["db_version"] = parse("0.0")
 
 config["app_version"] = parse(db_utils.get_app_metadata()["version"])
+config["app_name"] = db_utils.get_app_metadata()["name"]
 
 if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
@@ -33,32 +37,39 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 
+# Serve favicon
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse("static/favicon.ico")
+
+
 # get first page of links
 @app.get("/", response_class=HTMLResponse)
-async def root(background_tasks: BackgroundTasks, request: Request, page: int = 0):
-    links = db_utils.get_links(page)
-    background_tasks.add_task(
-        db_utils.decrement_rank, 1000
-    )  # TODO: Change max_rank to a config value in the database.
+async def root(request: Request, page: int = 0):
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "index.html",
-        dict(
-            request=request, links=links, page=page, count=db_utils.get_count()["pages"]
-        ),
+        {
+            "request": request,
+            "links": lks,
+            "page": page,
+            "version": config["app_version"],
+            "name": config["app_name"],
+        },
     )
 
 
 # Dashboard
 @app.get("/dashboard/", response_class=HTMLResponse)
 async def dashboard(request: Request, page: int = 0):
-    links = db_utils.get_links(page)
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
-            "links": links,
+            "links": lks,
             "page": page,
-            "count": db_utils.get_count()["count"],
+            "version": config["app_version"],
         },
     )
 
@@ -66,20 +77,39 @@ async def dashboard(request: Request, page: int = 0):
 # get next page of links for infinite scroll
 @app.get("/links/{page}", response_class=HTMLResponse)
 async def links(request: Request, page: int):
-    links = db_utils.get_links(page)
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "links.html",
-        {"request": request, "links": links, "page": page, "next_page": page + 1},
+        {
+            "request": request,
+            "links": lks,
+            "page": page,
+            "next_page": page + 1,
+        },
     )
 
 
 # get next page of links for infinite scroll
 @app.get("/dashboard_items/{page}", response_class=HTMLResponse)
 async def links(request: Request, page: int):
-    links = db_utils.get_links(page)
+    lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard_items.html",
-        {"request": request, "links": links, "page": page, "next_page": page + 1},
+        {
+            "request": request,
+            "links": lks,
+            "page": page,
+            "next_page": page + 1,
+        },
+    )
+
+
+# search for links:
+@app.get("/search", response_class=HTMLResponse)
+async def search(request: Request, text: str):
+    lks = db_utils.search_links(text)
+    return templates.TemplateResponse(
+        "links.html", {"request": request, "links": lks, "search_term": text}
     )
 
 
@@ -98,15 +128,20 @@ async def add_link(link_name: str = Form(...), link_url: str = Form(...)):
 
 # Redirect to the url of the link
 @app.get("/redirect/{link_id}")
-async def redirect(link_id):
-    return RedirectResponse(db_utils.get_link(link_id)[2])
+async def redirect(background_tasks: BackgroundTasks, link_id):
+    link = db_utils.get_link(link_id, True)[2]
+    background_tasks.add_task(
+        db_utils.decrement_rank, 1000
+    )  # TODO: Change max_rank to a config value in the database.
+    return RedirectResponse(link, status_code=302)
 
 
 # edit individual link
 @app.get("/edit/{link_id}", response_class=HTMLResponse)
 async def edit(request: Request, link_id):
     return templates.TemplateResponse(
-        "edit.html", {"request": request, "link": db_utils.get_link(link_id)}
+        "edit.html",
+        {"request": request, "link": db_utils.get_link(link_id, False)},
     )
 
 
@@ -118,10 +153,11 @@ async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(..
 
 
 # delete individual link
-@app.get("/delete/{link_id}", response_class=HTMLResponse)
-async def delete(link_id):
+@app.delete("/delete/{link_id}", response_class=HTMLResponse)
+async def delete(request: Request, link_id):
     db_utils.delete_link(link_id)
-    return RedirectResponse("/dashboard/")
+    print(link_id)
+    return templates.TemplateResponse("delete.html", {"request": request})
 
 
 # start the server
