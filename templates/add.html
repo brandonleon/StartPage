@@ -34,34 +34,34 @@
 </nav>
 
 <div class="container">
-  <main>
-    <div class="row g-5">
-      <div class="col-md-7 col-lg-8">
-        <h4 class="mb-3">Add new URL</h4>
-        <form action="/add" method="post" class="needs-validation" novalidate>
-          <div class="row g-3">
-            <div class="col-sm-6">
-              <input type="text" class="form-control" id="link_name" name="link_name" placeholder="Name" value="" required>
-              <div class="invalid-feedback">
-                Valid link name is required.
-              </div>
+    <main>
+        <div class="row g-5">
+            <div class="col-md-7 col-lg-8">
+                <h4 class="mb-3">Add new URL</h4>
+                <form action="/add" method="post" class="needs-validation" novalidate>
+                    <div class="row g-3">
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="link_name" name="link_name" placeholder="Name">
+                                <label class="required" for="floatingInput">Link Name</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="link_url" name="link_url" placeholder="URL">
+                                <label class="required" for="floatingPassword">Link URL</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <input type="text" class="form-control" id="link_tags" name="link_tags" placeholder="tags">
+                                <label for="floatingPassword">Tags, Comma Seperated. (eg: work, school, personal)</label>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <button class="w-100 btn btn-primary btn-lg" type="submit">Save</button>
+                    </div>
+                </form>
             </div>
-
-            <div class="col-sm-6">
-              <input type="text" class="form-control" id="link_url" name="link_url" placeholder="URL" value="" required>
-              <div class="invalid-feedback">
-                Valid link URL is required.
-              </div>
-            </div>
-
-          <hr class="my-4">
-
-          <button class="w-100 btn btn-primary btn-lg" type="submit">Save</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </main>
+        </div>
+    </main>
 </div>
 
 {% include '_footer.html' %}
