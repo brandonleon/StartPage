@@ -227,6 +227,17 @@ a:hover {
     color: var(--ctp-warning-strong);
 }
 
+.link-url {
+    display: -webkit-box;
+    overflow: hidden;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-height: 1.35;
+}
+
 .list-group-item {
     margin-bottom: 0.5rem;
     border-radius: 0.85rem;

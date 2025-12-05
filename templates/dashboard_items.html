@@ -20,7 +20,7 @@
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <h2 class="h5 mb-1">{{ link.name }}</h2>
-                        <a class="text-muted small" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
+                        <a class="text-muted small link-url" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
                     </div>
                     <span class="badge {{ badge_class }}">{{ badge_text }} · {{ "%.2f"|format(link.rank) }}</span>
                 </div>
