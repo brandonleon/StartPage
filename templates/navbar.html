@@ -1,35 +1,49 @@
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">StartPage</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
+<nav class="navbar navbar-expand-lg sticky-top py-3">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" href="/">StartPage</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
         </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="/">Home</a>
+                    <a class="nav-link" href="/">Home</a>
                 </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Tools
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
-                        <li><a class="dropdown-item" href="/add">Add</a></li>
-                        <li><a class="dropdown-item" href="/reports">Reports</a></li>
-                        <li><a class="dropdown-item disabled" href="/export">Export</a></li>
-                        <!-- TODO: Still working on these functions -->
-                        <li><a class="dropdown-item disabled" href="/import">Import</a></li>
-                        <!-- TODO: Still working on these functions -->
-                    </ul>
+                <li class="nav-item">
+                    <a class="nav-link" href="/dashboard">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/add">Add Link</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/help">Help</a>
                 </li>
             </ul>
-            <form class="d-flex"><input class="form-control me-2" type="search"
-                name="text" placeholder="Search..."
-                hx-get="/search" hx-trigger="keyup changed delay:500ms, search"
-                hx-target="#search-results" hx-swap="innerHTML" hx-indicator=".htmx-indicator"></form>
+            <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center w-100 w-lg-auto">
+                <form class="search-input w-100 position-relative" role="search"
+                      hx-get="/search"
+                      hx-trigger="keyup changed delay:500ms, search"
+                      hx-target="#search-results"
+                      hx-swap="innerHTML"
+                      hx-indicator=".search-indicator">
+                    <input class="form-control" type="search" name="text" placeholder="Search links..." autocomplete="off">
+                    <span class="search-indicator spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                </form>
+                <button class="theme-toggle" type="button" aria-label="Toggle theme"
+                        data-theme-toggle>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                        <circle cx="12" cy="12" r="4"></circle>
+                    </svg>
+                    <span class="small" data-theme-toggle-label>Dark</span>
+                </button>
             </div>
         </div>
     </div>

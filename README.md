@@ -6,9 +6,9 @@ Frecency is a portmanteau of 'recent' and 'frequency'. It is a weighted rank tha
 
 To the application, a link that has a low ranking but has been recently accessed will quickly have higher scoes than a link that is accessed frequently but not recently.
 ## Virtual environment Installation (if you want to modify code).
-1. Ensure you have poetry installed.
+1. Ensure you have [uv](https://github.com/astral-sh/uv) installed.
    ``` shell
-   pipx install poetry
+   pipx install uv
    ```
 2. Clone this repository.
    ``` shell
@@ -16,12 +16,12 @@ To the application, a link that has a low ranking but has been recently accessed
    ```
 3. Install dependencies.
    ``` shell
-   poetry install
+   uv sync
    ```
 4. Start the server in ether gunicorn or the flask development environment.
    Start the flask development server
    ```shell
-   poetry run uvicorn main:app --reload
+   uv run uvicorn main:app --reload
    ```
 
 

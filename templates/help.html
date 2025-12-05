@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="latte">
+{% include '_header.html' %}
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="container app-shell">
+    <section class="glass-panel mb-4">
+        <p class="text-uppercase text-muted small mb-1">Guide</p>
+        <h1 class="h3 mb-3">How StartPage keeps your daily launchpad tidy.</h1>
+        <p class="mb-0">The homepage lists links ordered by a dynamic rank: every redirect bumps the rank up,
+            and inactivity slowly nudges it down. Anything that drifts below <strong>1.0</strong> is eligible for cleanup, so your most-used links stay at the top.</p>
+    </section>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <section class="glass-panel h-100">
+                <h2 class="h5 mb-3">Everyday workflow</h2>
+                <ul class="list-unstyled d-grid gap-3">
+                    <li>
+                        <strong>Browse &amp; search.</strong>
+                        Use the global search box in the navbar—results stream in without reloading thanks to HTMX.
+                    </li>
+                    <li>
+                        <strong>Dashboard maintenance.</strong>
+                        The Dashboard groups cards by health so you can edit or delete low-rank items before they disappear.
+                    </li>
+                    <li>
+                        <strong>Add links quickly.</strong>
+                        Drop a URL on the Add page and we seed it with the average rank so it naturally finds its place.
+                    </li>
+                    <li>
+                        <strong>Automatic pruning.</strong>
+                        Each redirect updates the <code>accessed</code> timestamp and rank. Stale links (rank &lt; 1) are the first candidates for deletion.
+                    </li>
+                </ul>
+            </section>
+        </div>
+        <div class="col-lg-6">
+            <section class="glass-panel h-100">
+                <h2 class="h5 mb-3">Modify the database</h2>
+                <p>The application stores everything in a local SQLite file at:</p>
+                <p class="callout small mb-3">{{ db_path }}</p>
+                <ol class="ps-3">
+                    <li class="mb-3">
+                        <strong>In-app editing.</strong> Use the Add/Edit forms for day-to-day work—each save runs through
+                        <code>services/db_utils.py</code> to validate data and keep ranks balanced.
+                    </li>
+                    <li class="mb-3">
+                        <strong>Direct SQL tweaks.</strong> When you need to bulk-edit, open the database with <code>sqlite3 {{ db_path }}</code>
+                        and manipulate the <code>links</code> table. The core columns are <code>id</code>, <code>name</code>, <code>url</code>,
+                        <code>rank</code>, and <code>accessed</code> (Unix timestamp).
+                        <pre class="callout small mt-3 mb-0">sqlite3 {{ db_path }}
+UPDATE links SET rank = 1.0 WHERE name = 'Docs';
+.quit</pre>
+                    </li>
+                    <li>
+                        <strong>Automated scripts.</strong> Feel free to import <code>services.db_utils</code> into your own automation to reuse helpers such as
+                        <code>save_link</code>, <code>get_links</code>, or <code>delete_link</code>.
+                    </li>
+                </ol>
+                <p class="text-muted small mb-0">Tip: the database is disposable state—commit schema changes, not the file itself.</p>
+            </section>
+        </div>
+    </div>
+</div>
+
+{% include '_footer.html' %}
+
+</body>
+</html>

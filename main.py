@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from packaging.version import parse
 from starlette.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 import services.app_config as ap
 import services.db_utils as db_utils
@@ -32,9 +33,19 @@ if config["app_version"].major != config["db_version"].major:
 
 # Create the app
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # set up the templates
 templates = Jinja2Templates(directory="templates")
+
+
+def template_context(**extra):
+    ctx = {
+        "version": str(config["app_version"]),
+        "name": config["app_name"],
+    }
+    ctx.update(extra)
+    return ctx
 
 
 # Serve favicon
@@ -49,13 +60,12 @@ async def root(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "index.html",
-        {
-            "request": request,
-            "links": lks,
-            "page": page,
-            "version": config["app_version"],
-            "name": config["app_name"],
-        },
+        template_context(
+            request=request,
+            links=lks,
+            page=page,
+            title=f"{config['app_name']} · Home",
+        ),
     )
 
 
@@ -65,12 +75,12 @@ async def dashboard(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard.html",
-        {
-            "request": request,
-            "links": lks,
-            "page": page,
-            "version": config["app_version"],
-        },
+        template_context(
+            request=request,
+            links=lks,
+            page=page,
+            title=f"{config['app_name']} · Dashboard",
+        ),
     )
 
 
@@ -80,12 +90,12 @@ async def links(request: Request, page: int):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "links.html",
-        {
-            "request": request,
-            "links": lks,
-            "page": page,
-            "next_page": page + 1,
-        },
+        template_context(
+            request=request,
+            links=lks,
+            page=page,
+            next_page=page + 1,
+        ),
     )
 
 
@@ -95,28 +105,47 @@ async def links(request: Request, page: int):
     lks = db_utils.get_links(page)
     return templates.TemplateResponse(
         "dashboard_items.html",
-        {
-            "request": request,
-            "links": lks,
-            "page": page,
-            "next_page": page + 1,
-        },
+        template_context(
+            request=request,
+            links=lks,
+            page=page,
+            next_page=page + 1,
+        ),
     )
 
 
 # search for links:
 @app.get("/search", response_class=HTMLResponse)
-async def search(request: Request, text: str):
-    lks = db_utils.search_links(text)
+async def search(request: Request, text: str = ""):
+    query = text.strip()
+    if not query:
+        lks = db_utils.get_links(0)
+        next_page = 1 if len(lks) == 20 else None
+    else:
+        lks = db_utils.search_links(query)
+        next_page = None
+
     return templates.TemplateResponse(
-        "links.html", {"request": request, "links": lks, "search_term": text}
+        "links.html",
+        template_context(
+            request=request,
+            links=lks,
+            search_term=query,
+            next_page=next_page,
+        ),
     )
 
 
 # add a new link
 @app.get("/add", response_class=HTMLResponse)
 async def add_display(request: Request):
-    return templates.TemplateResponse("add.html", {"request": request})
+    return templates.TemplateResponse(
+        "add.html",
+        template_context(
+            request=request,
+            title=f"{config['app_name']} · Add Link",
+        ),
+    )
 
 
 # process the new link
@@ -141,7 +170,11 @@ async def redirect(background_tasks: BackgroundTasks, link_id):
 async def edit(request: Request, link_id):
     return templates.TemplateResponse(
         "edit.html",
-        {"request": request, "link": db_utils.get_link(link_id, False)},
+        template_context(
+            request=request,
+            link=db_utils.get_link(link_id, False),
+            title=f"{config['app_name']} · Edit Link",
+        ),
     )
 
 
@@ -157,7 +190,22 @@ async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(..
 async def delete(request: Request, link_id):
     db_utils.delete_link(link_id)
     print(link_id)
-    return templates.TemplateResponse("delete.html", {"request": request})
+    return templates.TemplateResponse(
+        "delete.html",
+        template_context(request=request),
+    )
+
+
+@app.get("/help", response_class=HTMLResponse)
+async def help_page(request: Request):
+    return templates.TemplateResponse(
+        "help.html",
+        template_context(
+            request=request,
+            title=f"{config['app_name']} · Help",
+            db_path=db_utils.db_path,
+        ),
+    )
 
 
 # start the server

@@ -1,20 +1,42 @@
 {% for link in links %}
-<div class="col" {% if loop.last %} hx-get="/dashboard_items/{{ next_page }}" hx-trigger="revealed" hx-swap="afterend" {% endif %}>
-  <div class="card h-100{% if link.rank < 1 %} text-dark bg-danger{% elif link.rank < 2.5 %} text-dark bg-warning{% endif %}">
-    {% if link.rank < 1 %}
-    <div class="card-header">Scheduled to be Deleted</div>
-    {% elif link.rank < 2.5 %}
-    <div class="card-header">Will be deleted if rank drops below 1.</div>
-    {% endif %}
-    <div class="card-body">
-      <h5 id="card-title">{{ link.name }}</h5>
-      <p class="card-text">{{ link.url }} <br />Rank: {{ link.rank | round(2) }}</p>
-      <a class="btn btn-primary" href="/edit/{{ link.id }}" role="button">Edit</a>
-      <a class="btn btn-danger" hx-confirm="Delete {{ link.name }}?" hx-target="closest #card" hx-swap="outerHTML" hx-delete="/delete/{{ link.id }}" role="button">Delete</a>
-    </div>
-    <div class="card-footer">
-      <small class="text-muted text-center">Last Used {{ link.accessed }}</small>
-    </div>
-  </div>
+{% set badge_text = "Favorite" %}
+{% set badge_class = "text-bg-success" %}
+{% if link.rank < 1.1 %}
+    {% set badge_text = "Prune soon" %}
+    {% set badge_class = "text-bg-danger" %}
+{% elif link.rank < 2.5 %}
+    {% set badge_text = "Watchlist" %}
+    {% set badge_class = "text-bg-warning" %}
+{% endif %}
+<div class="col"
+     {% if loop.last %}
+        hx-get="/dashboard_items/{{ next_page }}"
+        hx-trigger="revealed"
+        hx-swap="afterend"
+     {% endif %}>
+    <article class="glass-panel h-100 d-flex flex-column justify-content-between">
+        <div class="mb-3">
+            <div class="d-flex flex-column gap-2">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h2 class="h5 mb-1">{{ link.name }}</h2>
+                        <a class="text-muted small" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
+                    </div>
+                    <span class="badge {{ badge_class }}">{{ badge_text }} · {{ "%.2f"|format(link.rank) }}</span>
+                </div>
+                <div class="small text-muted">Last opened {{ link.accessed }}</div>
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-light flex-grow-1" href="/edit/{{ link.id }}">Edit</a>
+            <button class="btn btn-danger flex-grow-1"
+                    hx-confirm="Delete {{ link.name }}?"
+                    hx-target="closest .col"
+                    hx-swap="outerHTML"
+                    hx-delete="/delete/{{ link.id }}">
+                Delete
+            </button>
+        </div>
+    </article>
 </div>
 {% endfor %}

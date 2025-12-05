@@ -1,67 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="latte">
 {% include '_header.html' %}
 <body>
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">StartPage</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="/">Home</a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
-                       data-bs-toggle="dropdown" aria-expanded="false">
-                        Tools
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
-                        <li><a class="dropdown-item" href="/add">Add</a></li>
-                        <li><a class="dropdown-item disabled" href="/export">Export</a></li>
-                        <!-- TODO: Still working on these functions -->
-                        <li><a class="dropdown-item disabled" href="/import">Import</a></li>
-                        <!-- TODO: Still working on these functions -->
-                    </ul>
-                </li>
-            </ul>
+
+{% include 'navbar.html' %}
+
+<div class="container app-shell">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <section class="glass-panel">
+                <p class="text-uppercase text-muted small mb-1">Add a new link</p>
+                <h1 class="h3 mb-4">Drop a URL and StartPage will track it automatically.</h1>
+                <form action="/add" method="post">
+                    <div class="mb-3">
+                        <label for="link_name" class="form-label required">Link name</label>
+                        <input type="text" class="form-control" id="link_name" name="link_name" placeholder="Daily dashboard" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="link_url" class="form-label required">URL</label>
+                        <input type="url" class="form-control" id="link_url" name="link_url" placeholder="https://example.com" required>
+                    </div>
+                    <div class="callout mb-4">
+                        <h5 class="mb-2">How this works</h5>
+                        <p class="mb-0 text-muted">Each save assigns a balanced rank so new links appear near the top and gradually find their place as you use them.</p>
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit">Save link</button>
+                </form>
+            </section>
         </div>
     </div>
-</nav>
-
-<div class="container">
-    <main>
-        <div class="row g-5">
-            <div class="col-md-7 col-lg-8">
-                <h4 class="mb-3">Add new URL</h4>
-                <form action="/add" method="post" class="needs-validation" novalidate>
-                    <div class="row g-3">
-                            <div class="form-floating mb-3">
-                                <input type="text" class="form-control" id="link_name" name="link_name" placeholder="Name">
-                                <label class="required" for="floatingInput">Link Name</label>
-                            </div>
-                            <div class="form-floating mb-3">
-                                <input type="text" class="form-control" id="link_url" name="link_url" placeholder="URL">
-                                <label class="required" for="floatingPassword">Link URL</label>
-                            </div>
-                            <div class="form-floating mb-3">
-                                <input type="text" class="form-control" id="link_tags" name="link_tags" placeholder="tags">
-                                <label for="floatingPassword">Tags, Comma Seperated. (eg: work, school, personal)</label>
-                            </div>
-                        </div>
-
-                        <hr class="my-4">
-
-                        <button class="w-100 btn btn-primary btn-lg" type="submit">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </main>
 </div>
 
 {% include '_footer.html' %}

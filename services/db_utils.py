@@ -261,8 +261,8 @@ def get_app_metadata() -> Dict[str, str]:
     with open(
         join(realpath(join(dirname(__file__), "../pyproject.toml")))
     ) as f:
-        f = f.read()
-        return tomlkit.parse(f)["tool"]["poetry"]
+        project = tomlkit.parse(f.read())["project"]
+        return {"name": project["name"], "version": project["version"]}
 
 
 # Search for links in the database.
@@ -281,7 +281,7 @@ def search_links(query: str) -> List[Dict[str, str]]:
 
     cur = con.cursor()
     cur.execute(
-        "SELECT id, name, url, rank "
+        "SELECT id, name, url, rank, accessed "
         "FROM links "
         "WHERE name LIKE :query OR url LIKE :query "
         "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC",
@@ -295,6 +295,7 @@ def search_links(query: str) -> List[Dict[str, str]]:
             "name": row["name"],
             "url": row["url"],
             "rank": row["rank"],
+            "accessed": timeago.format(row["accessed"]),
         }
         for row in rows
     ]

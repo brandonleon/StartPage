@@ -1,41 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="latte">
 {% include '_header.html' %}
 <body>
 
 {% include 'navbar.html' %}
 
-<div class="container">
-  <main>
-    <div class="row g-5">
-
-      <div class="col-md-7 col-lg-8">
-        <h4 class="mb-3">Edit URL, {{ link.name }}</h4>
-        <form action="/edit/{{ link.id }}" method="post" class="needs-validation" novalidate>
-          <div class="row g-3">
-            <div class="col-sm-6">
-              <label for="link_name" class="form-label">Name</label>
-              <input type="text" class="form-control" id="link_name" name="link_name" value="{{ link.name }}" required>
-              <div class="invalid-feedback">
-                Valid first name is required.
-              </div>
-            </div>
-
-            <div class="col-sm-6">
-              <label for="link_url" class="form-label">URL</label>
-              <input type="text" class="form-control" id="link_url" name="link_url" value="{{ link.url }}" required>
-              <div class="invalid-feedback">
-                Valid last name is required.
-              </div>
-            </div>
-
-          <hr class="my-4">
-          <button class="w-100 btn btn-primary btn-lg" type="submit">Save</button>
-          </div>
-        </form>
-      </div>
+<div class="container app-shell">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <section class="glass-panel">
+                <p class="text-uppercase text-muted small mb-1">Edit link</p>
+                <h1 class="h3 mb-4">Fine tune <span class="text-white-50">{{ link.name }}</span></h1>
+                <form action="/edit/{{ link.id }}" method="post">
+                    <div class="mb-3">
+                        <label for="link_name" class="form-label required">Link name</label>
+                        <input type="text" class="form-control" id="link_name" name="link_name" value="{{ link.name }}" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="link_url" class="form-label required">URL</label>
+                        <input type="url" class="form-control" id="link_url" name="link_url" value="{{ link.url }}" required>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-secondary flex-grow-1" href="/">Cancel</a>
+                        <button class="btn btn-primary flex-grow-1" type="submit">Save changes</button>
+                    </div>
+                </form>
+            </section>
+        </div>
     </div>
-  </main>
 </div>
 
 {% include '_footer.html' %}
