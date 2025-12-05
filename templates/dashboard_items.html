@@ -17,12 +17,12 @@
     <article class="glass-panel h-100 d-flex flex-column justify-content-between">
         <div class="mb-3">
             <div class="d-flex flex-column gap-2">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div class="link-content">
                         <h2 class="h5 mb-1">{{ link.name }}</h2>
                         <a class="text-muted small link-url" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
                     </div>
-                    <span class="badge {{ badge_class }}">{{ badge_text }} · {{ "%.2f"|format(link.rank) }}</span>
+                    <span class="badge {{ badge_class }} flex-shrink-0">{{ badge_text }} · {{ "%.2f"|format(link.rank) }}</span>
                 </div>
                 <div class="small text-muted">Last opened {{ link.accessed }}</div>
             </div>

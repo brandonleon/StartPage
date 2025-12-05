@@ -8,3 +8,5 @@ __pycache__/
 *.codekit3
 startpage.egg-info
 AGENTS.md
+startpage/services/.pytest_cache/v/cache
+CLAUDE.md

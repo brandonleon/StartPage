@@ -34,7 +34,7 @@
                     {% endif %}>
                     <div class="w-100">
                         <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
-                            <div>
+                            <div class="link-content">
                                 <a {% if link.rank < 1.1 %}class="link-danger"{% elif link.rank < 2.5 %}class="link-warning"{% endif %}
                                    href="/redirect/{{ link.id }}"
                                    target="_blank"
@@ -44,7 +44,7 @@
                                    title="{{ link.url|truncate(255) }}">{{ link.name }}</a>
                                 <div class="text-muted small link-url">{{ link.url }}</div>
                             </div>
-                            <div class="text-md-end">
+                            <div class="link-metadata text-md-end">
                                 <span class="tag">Rank {{ "%.2f"|format(link.rank) }}</span>
                                 <div class="small text-muted">Last used {{ link.accessed }}</div>
                             </div>
