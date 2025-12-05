@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="latte">
+{% include '_header.html' %}
+
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="container app-shell">
+    <section class="hero glass-panel mb-4">
+        <p class="text-uppercase text-muted small mb-1">Database Analytics</p>
+        <h1>Statistics Dashboard</h1>
+        <p>Comprehensive insights into your link collection and usage patterns.</p>
+    </section>
+
+    <!-- Rank Statistics Overview -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Total Links</p>
+                <h2 class="h3 mb-0">{{ stats.rank_stats.total_links }}</h2>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Sum Rank</p>
+                <h2 class="h3 mb-0">{{ "%.2f"|format(stats.rank_stats.sum) }}</h2>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Average Rank</p>
+                <h2 class="h3 mb-0">{{ "%.2f"|format(stats.rank_stats.avg) }}</h2>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-3">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Max Rank</p>
+                <h2 class="h3 mb-0">{{ "%.2f"|format(stats.rank_stats.max) }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rank Range -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="glass-panel">
+                <h3 class="h5 mb-3">Rank Distribution</h3>
+                <table class="table table-borderless">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th class="text-end">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Minimum Rank</td>
+                            <td class="text-end">{{ "%.2f"|format(stats.rank_stats.min) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Average Rank</td>
+                            <td class="text-end">{{ "%.2f"|format(stats.rank_stats.avg) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Maximum Rank</td>
+                            <td class="text-end">{{ "%.2f"|format(stats.rank_stats.max) }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Rank Sum</td>
+                            <td class="text-end">{{ "%.2f"|format(stats.rank_stats.sum) }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Max Rank Threshold</strong></td>
+                            <td class="text-end"><strong>{{ stats.config.max_rank }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Capacity Used</strong></td>
+                            <td class="text-end"><strong>{{ "%.1f"|format((stats.rank_stats.sum / stats.config.max_rank) * 100) }}%</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Access Pattern Statistics -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Oldest Access</p>
+                <h3 class="h5 mb-0">{{ stats.access_stats.oldest_timeago }}</h3>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Most Recent Access</p>
+                <h3 class="h5 mb-0">{{ stats.access_stats.newest_timeago }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="glass-panel">
+                <h3 class="h5 mb-3">Configuration</h3>
+                <table class="table table-borderless">
+                    <tbody>
+                        <tr>
+                            <td>Batch Size (Links per page)</td>
+                            <td class="text-end">{{ stats.config.batch_size }}</td>
+                        </tr>
+                        <tr>
+                            <td>Max Rank Threshold</td>
+                            <td class="text-end">{{ stats.config.max_rank }}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Pages</td>
+                            <td class="text-end">{{ ((stats.rank_stats.total_links + stats.config.batch_size - 1) // stats.config.batch_size) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Links by Rank -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="glass-panel h-100">
+                <h3 class="h5 mb-3">Top 10 Most Accessed (by Rank)</h3>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th class="text-end">Rank</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in stats.top_links %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <div><a href="/redirect/{{ link.id }}" target="_blank">{{ link.name }}</a></div>
+                                    <small class="text-muted">Last: {{ link.accessed }}</small>
+                                </td>
+                                <td class="text-end">{{ "%.2f"|format(link.rank) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="glass-panel h-100">
+                <h3 class="h5 mb-3">Recently Accessed</h3>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th class="text-end">Accessed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in stats.recent_links %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <div><a href="/redirect/{{ link.id }}" target="_blank">{{ link.name }}</a></div>
+                                    <small class="text-muted">Rank: {{ "%.2f"|format(link.rank) }}</small>
+                                </td>
+                                <td class="text-end">{{ link.accessed }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Least Accessed Links -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="glass-panel">
+                <h3 class="h5 mb-3">10 Least Accessed Links (at Risk of Pruning)</h3>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th class="text-end">Rank</th>
+                                <th class="text-end">Last Accessed</th>
+                                <th class="text-end">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for link in stats.least_links %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <div><a href="/redirect/{{ link.id }}" target="_blank">{{ link.name }}</a></div>
+                                    <span class="text-muted small">{{ link.url }}</span>
+                                </td>
+                                <td class="text-end">{{ "%.2f"|format(link.rank) }}</td>
+                                <td class="text-end">{{ link.accessed }}</td>
+                                <td class="text-end">
+                                    {% if link.rank < 1.1 %}
+                                        <span class="badge text-bg-danger">Prune soon</span>
+                                    {% elif link.rank < 2.5 %}
+                                        <span class="badge text-bg-warning">Watchlist</span>
+                                    {% else %}
+                                        <span class="badge text-bg-success">Healthy</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% include '_footer.html' %}
+
+</body>
+
+</html>

@@ -208,6 +208,19 @@ async def help_page(request: Request):
     )
 
 
+@app.get("/stats", response_class=HTMLResponse)
+async def stats_page(request: Request):
+    stats = db_utils.get_stats()
+    return templates.TemplateResponse(
+        "stats.html",
+        template_context(
+            request=request,
+            title=f"{config['app_name']} · Statistics",
+            stats=stats,
+        ),
+    )
+
+
 # start the server
 if __name__ == "__main__":
     uvicorn.run(app, port=8001, host="127.0.0.1")

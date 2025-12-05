@@ -319,6 +319,17 @@ a:hover {
 
 .table {
     color: var(--ctp-text);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--ctp-card-border);
+}
+
+.table > :not(caption) > * > * {
+    background-color: transparent;
+    border-bottom-color: var(--ctp-card-border);
+}
+
+.table thead {
+    border-bottom-color: var(--ctp-card-border);
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) > * {
@@ -328,6 +339,43 @@ a:hover {
 
 .table-striped > tbody > tr:nth-of-type(even) > * {
     background-color: var(--ctp-surface);
+}
+
+.table-borderless > :not(caption) > * > * {
+    border-bottom: 0;
+}
+
+.table th,
+.table td {
+    color: var(--ctp-text);
+}
+
+.badge {
+    color: var(--ctp-text);
+}
+
+.badge.text-bg-success {
+    background-color: var(--ctp-success) !important;
+    color: var(--ctp-base) !important;
+}
+
+.badge.text-bg-warning {
+    background-color: var(--ctp-warning) !important;
+    color: var(--ctp-base) !important;
+}
+
+.badge.text-bg-danger {
+    background-color: var(--ctp-danger) !important;
+    color: var(--ctp-base) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+    color: var(--ctp-text);
+}
+
+p {
+    color: var(--ctp-text);
 }
 
 .callout {

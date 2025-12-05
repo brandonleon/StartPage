@@ -331,3 +331,119 @@ def search_links(query: str) -> List[Dict[str, str]]:
         }
         for row in rows
     ]
+
+
+# Get database statistics.
+def get_stats() -> Dict[str, any]:
+    """
+    Get database statistics including rank stats, access patterns, and more.
+
+    Returns:
+        Dict[str, any]: Dictionary containing various database statistics.
+    """
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    # Rank statistics
+    cur.execute(
+        "SELECT "
+        "SUM(rank) as sum_rank, "
+        "AVG(rank) as avg_rank, "
+        "MIN(rank) as min_rank, "
+        "MAX(rank) as max_rank, "
+        "COUNT(*) as total_links "
+        "FROM links"
+    )
+    rank_stats = cur.fetchone()
+
+    # Access pattern statistics
+    cur.execute(
+        "SELECT "
+        "MIN(accessed) as oldest_access, "
+        "MAX(accessed) as newest_access "
+        "FROM links"
+    )
+    access_stats = cur.fetchone()
+
+    # Top 10 most frequently accessed links
+    cur.execute(
+        "SELECT id, name, url, rank, accessed "
+        "FROM links "
+        "ORDER BY rank DESC "
+        "LIMIT 10"
+    )
+    top_links = cur.fetchall()
+
+    # Top 10 most recently accessed links
+    cur.execute(
+        "SELECT id, name, url, rank, accessed "
+        "FROM links "
+        "ORDER BY accessed DESC "
+        "LIMIT 10"
+    )
+    recent_links = cur.fetchall()
+
+    # Least accessed links (bottom 10 by rank)
+    cur.execute(
+        "SELECT id, name, url, rank, accessed "
+        "FROM links "
+        "ORDER BY rank ASC "
+        "LIMIT 10"
+    )
+    least_links = cur.fetchall()
+
+    # Get batch size configuration
+    batch_size = _get_batch_size(cur)
+
+    con.close()
+
+    return {
+        "rank_stats": {
+            "sum": rank_stats["sum_rank"] or 0,
+            "avg": rank_stats["avg_rank"] or 0,
+            "min": rank_stats["min_rank"] or 0,
+            "max": rank_stats["max_rank"] or 0,
+            "total_links": rank_stats["total_links"] or 0,
+        },
+        "access_stats": {
+            "oldest_access": access_stats["oldest_access"],
+            "newest_access": access_stats["newest_access"],
+            "oldest_timeago": timeago.format(access_stats["oldest_access"]) if access_stats["oldest_access"] else "N/A",
+            "newest_timeago": timeago.format(access_stats["newest_access"]) if access_stats["newest_access"] else "N/A",
+        },
+        "top_links": [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "url": row["url"],
+                "rank": row["rank"],
+                "accessed": timeago.format(row["accessed"]),
+            }
+            for row in top_links
+        ],
+        "recent_links": [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "url": row["url"],
+                "rank": row["rank"],
+                "accessed": timeago.format(row["accessed"]),
+            }
+            for row in recent_links
+        ],
+        "least_links": [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "url": row["url"],
+                "rank": row["rank"],
+                "accessed": timeago.format(row["accessed"]),
+            }
+            for row in least_links
+        ],
+        "config": {
+            "batch_size": batch_size,
+            "max_rank": 1000,  # TODO: Make this configurable
+        },
+    }
