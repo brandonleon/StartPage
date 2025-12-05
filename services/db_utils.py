@@ -79,6 +79,38 @@ def get_links(page: int = 0, batch: int = 20) -> List[dict]:
     ]
 
 
+def _get_batch_size(cur: sqlite3.Cursor) -> int:
+    """
+    Helper to read the configured batch size from the config table.
+    Defaults to 20 when the setting is missing or invalid.
+    """
+    cur.execute(
+        "SELECT value FROM config WHERE name = 'batch' LIMIT 1;"
+    )
+    row = cur.fetchone()
+    try:
+        return max(1, int(row[0])) if row and row[0] is not None else 20
+    except (TypeError, ValueError):
+        return 20
+
+
+def get_count() -> Dict[str, int]:
+    """
+    Return the number of links in the database and the total number of pages.
+
+    The page count is derived from the configured batch size.
+    """
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    cur.execute("SELECT COUNT(*) FROM links;")
+    total_links = cur.fetchone()[0] or 0
+    batch_size = _get_batch_size(cur)
+    con.close()
+
+    pages = (total_links + batch_size - 1) // batch_size
+    return {"count": total_links, "pages": pages}
+
+
 # delete link by id
 def delete_link(link_id: str) -> bool:
     """

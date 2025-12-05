@@ -6,3 +6,5 @@
 .idea
 __pycache__/
 *.codekit3
+startpage.egg-info
+AGENTS.md

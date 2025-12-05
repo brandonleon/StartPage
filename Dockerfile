@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM ghcr.io/astral-sh/uv:python3.10-alpine
 
 ENV LOG_LEVEL="info"\
     WORKERS=2 \
@@ -9,10 +9,11 @@ ENV LOG_LEVEL="info"\
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 WORKDIR $WORKING_DIR
-COPY pyproject.toml uv.lock $WORKING_DIR
+COPY pyproject.toml uv.lock README.md $WORKING_DIR
+COPY services $WORKING_DIR/services
 
-# System deps:
-RUN pip install --no-cache-dir uv
+# Build deps needed for uvloop wheels on Alpine
+RUN apk add --no-cache build-base
 
 # Project initialization:
 RUN if [ "$ENVIRONMENT" = "production" ]; then \
@@ -22,4 +23,4 @@ RUN if [ "$ENVIRONMENT" = "production" ]; then \
     fi
 
 COPY . $WORKING_DIR
-CMD uvicorn --host 0.0.0.0 --port 8080 --workers $WORKERS --log-level $LOG_LEVEL main:app
+CMD ["./docker-entrypoint.sh"]

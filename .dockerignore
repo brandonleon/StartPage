@@ -1,0 +1,9 @@
+.venv
+__pycache__/
+.pytest_cache/
+.git
+.gitignore
+*.pyc
+data/links.db
+data/__pycache__/
+startpage.egg-info/
