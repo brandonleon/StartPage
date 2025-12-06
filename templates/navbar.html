@@ -35,7 +35,15 @@
                       hx-target="#search-results"
                       hx-swap="innerHTML"
                       hx-indicator=".search-indicator">
-                    <input class="form-control" type="search" name="text" placeholder="Search links..." autocomplete="off">
+                    <input class="form-control" type="search" name="text" placeholder="Search links..." autocomplete="off" id="search-input">
+                    <button type="button" class="search-clear-btn" aria-label="Clear search" style="display: none;"
+                            onclick="document.getElementById('search-input').value = ''; this.style.display = 'none'; htmx.trigger(this.parentElement, 'search');">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" fill="none">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                     <span class="search-indicator spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                 </form>
                 <button class="theme-toggle" type="button" aria-label="Toggle theme"

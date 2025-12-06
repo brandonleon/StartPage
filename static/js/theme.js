@@ -23,4 +23,18 @@ function initTheme() {
     });
 }
 
-document.addEventListener("DOMContentLoaded", initTheme);
+function initSearchClear() {
+    const searchInput = document.getElementById("search-input");
+    const clearBtn = document.querySelector(".search-clear-btn");
+
+    if (searchInput && clearBtn) {
+        searchInput.addEventListener("input", () => {
+            clearBtn.style.display = searchInput.value ? "block" : "none";
+        });
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
+    initSearchClear();
+});
