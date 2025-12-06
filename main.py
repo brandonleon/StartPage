@@ -38,6 +38,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # set up the templates
 templates = Jinja2Templates(directory="templates")
 
+SEARCH_PARTIALS = {
+    "links": "links.html",
+    "dashboard": "dashboard_items.html",
+}
 
 def template_context(**extra):
     ctx = {
@@ -120,7 +124,7 @@ async def links(request: Request, page: int):
 
 # search for links:
 @app.get("/search", response_class=HTMLResponse)
-async def search(request: Request, text: str = ""):
+async def search(request: Request, text: str = "", view: str = "links"):
     query = text.strip()
     if not query:
         lks = db_utils.get_links(0)
@@ -129,8 +133,10 @@ async def search(request: Request, text: str = ""):
         lks = db_utils.search_links(query)
         next_page = None
 
+    template_name = SEARCH_PARTIALS.get(view, SEARCH_PARTIALS["links"])
+
     return templates.TemplateResponse(
-        "links.html",
+        template_name,
         template_context(
             request=request,
             links=lks,
