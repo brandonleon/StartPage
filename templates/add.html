@@ -20,6 +20,22 @@
                         <label for="link_url" class="form-label required">URL</label>
                         <input type="url" class="form-control" id="link_url" name="link_url" placeholder="https://example.com" required>
                     </div>
+                    <div class="mb-3">
+                        <label for="tag_names" class="form-label">Tags (optional)</label>
+                        <input type="text" class="form-control" id="tag_names" name="tag_names"
+                               placeholder="e.g., personal, work, project-name">
+                        <div class="form-text">Separate multiple tags with commas. Tags are automatically lowercased.</div>
+                    </div>
+                    {% if all_tags %}
+                    <div class="mb-3">
+                        <p class="small text-muted mb-2">Existing tags:</p>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for tag in all_tags %}
+                            <span class="badge bg-light text-dark">{{ tag.name }} ({{ tag.count }})</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="callout mb-4">
                         <h5 class="mb-2">How this works</h5>
                         <p class="mb-0 text-muted">Each save assigns a balanced rank so new links appear near the top and gradually find their place as you use them.</p>

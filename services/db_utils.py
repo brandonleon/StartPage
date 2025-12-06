@@ -171,7 +171,7 @@ def init_db(cur_version: str) -> None:
 
 
 # add link to database
-def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
+def save_link(name: str, url: str, link_id: Optional[str] = None) -> str:
     """
     Save link to database, or update existing link with a new name or url.
 
@@ -184,7 +184,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
         link_id (Optional[str]): Link id.
 
     Returns:
-        bool: True if link was saved, False if link was not saved.
+        str: The link id (generated if new, or the provided id if updating).
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -193,18 +193,19 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
         rank = cur.fetchone()[0]
         if rank is None:
             rank = 1.0
+        new_id = str(uuid4())
         with con as cur:
             cur.execute(
                 "INSERT INTO links (id, url, name, rank, accessed) VALUES (:id, :url, :name, :rank, :accessed)",
                 {
-                    "id": str(uuid4()),
+                    "id": new_id,
                     "url": url,
                     "name": name,
                     "rank": rank,
                     "accessed": int(time()),
                 },
             )
-            return True
+            return new_id
     else:
         with con as cur:
             cur.execute(
@@ -215,7 +216,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> bool:
                     "url": url,
                 },
             )
-            return True
+            return link_id
 
 
 # Read config from data

@@ -143,19 +143,34 @@ async def search(request: Request, text: str = ""):
 # add a new link
 @app.get("/add", response_class=HTMLResponse)
 async def add_display(request: Request):
+    all_tags = db_utils.get_all_tags()
     return templates.TemplateResponse(
         "add.html",
         template_context(
             request=request,
             title=f"{config['app_name']} · Add Link",
+            all_tags=all_tags,
         ),
     )
 
 
 # process the new link
 @app.post("/add", response_class=HTMLResponse)
-async def add_link(link_name: str = Form(...), link_url: str = Form(...)):
-    db_utils.save_link(link_name, link_url)
+async def add_link(
+    link_name: str = Form(...),
+    link_url: str = Form(...),
+    tag_names: str = Form(""),
+):
+    # Save the link and get the link_id
+    link_id = db_utils.save_link(link_name, link_url)
+
+    # Process tags if provided
+    if tag_names.strip():
+        # Split by comma and process each tag
+        tags = [tag.strip() for tag in tag_names.split(",") if tag.strip()]
+        for tag in tags:
+            db_utils.add_tag_to_link(link_id, tag)
+
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
 
@@ -246,7 +261,11 @@ async def tags_page(request: Request):
 
 @app.post("/link/{link_id}/tag", response_class=HTMLResponse)
 async def add_tag(link_id: str, tag_name: str = Form(...)):
-    db_utils.add_tag_to_link(link_id, tag_name)
+    # Parse comma-separated tags
+    if tag_name.strip():
+        tags = [tag.strip() for tag in tag_name.split(",") if tag.strip()]
+        for tag in tags:
+            db_utils.add_tag_to_link(link_id, tag)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
 
