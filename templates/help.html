@@ -9,8 +9,12 @@
     <section class="glass-panel mb-4">
         <p class="text-uppercase text-muted small mb-1">Guide</p>
         <h1 class="h3 mb-3">How StartPage keeps your daily launchpad tidy.</h1>
-        <p class="mb-0">The homepage lists links ordered by a dynamic rank: every redirect bumps the rank up,
+        <p class="mb-3">The homepage lists links ordered by a dynamic rank: every redirect bumps the rank up,
             and inactivity slowly nudges it down. Anything that drifts below <strong>1.0</strong> is eligible for cleanup, so your most-used links stay at the top.</p>
+        <p class="text-muted small mb-0">
+            <strong>Tech stack:</strong> FastAPI + Uvicorn + SQLite + Jinja2 templates + HTMX for dynamic content loading.
+            Designed for self-hosting with Docker support.
+        </p>
     </section>
 
     <div class="row g-4">
@@ -29,6 +33,10 @@
                     <li>
                         <strong>Add links quickly.</strong>
                         Drop a URL on the Add page and we seed it with the average rank so it naturally finds its place.
+                    </li>
+                    <li>
+                        <strong>Organize with tags.</strong>
+                        Add tags when creating or editing links (comma-separated). View all tags at <code>/tags</code> and filter links by tag.
                     </li>
                     <li>
                         <strong>Automatic pruning.</strong>
@@ -50,9 +58,11 @@
                     <li class="mb-3">
                         <strong>Direct SQL tweaks.</strong> When you need to bulk-edit, open the database with <code>sqlite3 {{ db_path }}</code>
                         and manipulate the <code>links</code> table. The core columns are <code>id</code>, <code>name</code>, <code>url</code>,
-                        <code>rank</code>, and <code>accessed</code> (Unix timestamp).
+                        <code>rank</code>, and <code>accessed</code> (Unix timestamp). Tags are stored in the <code>tags</code> table with
+                        relationships in <code>tagmap</code>.
                         <pre class="callout small mt-3 mb-0">sqlite3 {{ db_path }}
 UPDATE links SET rank = 1.0 WHERE name = 'Docs';
+SELECT * FROM tags;
 .quit</pre>
                     </li>
                     <li>

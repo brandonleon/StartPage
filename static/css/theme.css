@@ -220,6 +220,11 @@ a:hover {
     color: var(--ctp-text);
 }
 
+.form-control::placeholder {
+    color: var(--placeholder-color);
+    opacity: 1;
+}
+
 .card {
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.15);
 }
