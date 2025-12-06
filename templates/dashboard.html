@@ -37,6 +37,13 @@
                                 <div>
                                     <h2 class="h5 mb-1">{{ link.name }}</h2>
                                     <a class="text-muted small link-url" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
+                                    {% if link.tags %}
+                                    <div class="mt-2">
+                                        {% for tag in link.tags %}
+                                        <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
                                 </div>
                                 <span class="badge {{ badge_class }}">Rank {{ "%.2f"|format(link.rank) }}</span>
                             </div>

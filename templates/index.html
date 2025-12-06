@@ -19,16 +19,35 @@
     <section class="glass-panel">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
             <div>
-                <h2 class="h4 mb-1">Pinned Links</h2>
+                <h2 class="h4 mb-1">{% if filtered_tag %}Links tagged "{{ filtered_tag }}"{% else %}Pinned Links{% endif %}</h2>
                 <p class="text-muted mb-0">Sorted by how frequently you access them.</p>
             </div>
             <a class="btn btn-outline-secondary" href="/add">Add link</a>
         </div>
+        {% if all_tags %}
+        <div class="mb-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="text-muted small">Filter by tag:</span>
+                {% if filtered_tag %}
+                <a href="/" class="badge bg-secondary text-decoration-none">Show all</a>
+                {% endif %}
+                {% for tag in all_tags %}
+                <a href="/tag/{{ tag.name }}" class="badge {% if filtered_tag == tag.name %}bg-primary{% else %}bg-light text-dark{% endif %} text-decoration-none">
+                    {{ tag.name }} <span class="text-muted">({{ tag.count }})</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
         <ul class="list-group list-group-flush" id="search-results">
             {% for link in links %}
                 <li class="list-group-item flex-column align-items-start"
                     {% if loop.index == 20 %}
-                        hx-get="/links/1"
+                        {% if filtered_tag %}
+                            hx-get="/tag/{{ filtered_tag }}/links/1"
+                        {% else %}
+                            hx-get="/links/1"
+                        {% endif %}
                         hx-trigger="revealed"
                         hx-swap="afterend"
                     {% endif %}>
@@ -43,6 +62,13 @@
                                    data-bs-delay="200"
                                    title="{{ link.url|truncate(255) }}">{{ link.name }}</a>
                                 <div class="text-muted small link-url">{{ link.url }}</div>
+                                {% if link.tags %}
+                                <div class="mt-2">
+                                    {% for tag in link.tags %}
+                                    <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                             <div class="link-metadata text-md-end">
                                 <span class="tag">Rank {{ "%.2f"|format(link.rank) }}</span>

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="latte">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="../static/css/theme.css">
+    <title>StartPage - Administrator Guide</title>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg sticky-top py-3">
+    <div class="container">
+        <a class="navbar-brand fw-semibold" href="/">StartPage</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Back to App</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container app-shell">
+    <section class="hero glass-panel mb-4">
+        <p class="text-uppercase text-muted small mb-1">Documentation</p>
+        <h1>Administrator Guide</h1>
+        <p>Complete deployment and administration guide for StartPage.</p>
+    </section>
+
+    <!-- Table of Contents -->
+    <section class="glass-panel mb-4">
+        <h2 class="h4 mb-3">Table of Contents</h2>
+        <ol class="list-group list-group-numbered list-group-flush">
+            <li class="list-group-item"><a href="#overview">Overview</a></li>
+            <li class="list-group-item"><a href="#deployment">Deployment Options</a></li>
+            <li class="list-group-item"><a href="#docker">Docker Deployment</a></li>
+            <li class="list-group-item"><a href="#local">Local Development</a></li>
+            <li class="list-group-item"><a href="#database">Database Management</a></li>
+            <li class="list-group-item"><a href="#migration">Database Migration Guide</a></li>
+            <li class="list-group-item"><a href="#backup">Backup and Restore</a></li>
+            <li class="list-group-item"><a href="#configuration">Configuration</a></li>
+            <li class="list-group-item"><a href="#troubleshooting">Troubleshooting</a></li>
+        </ol>
+    </section>
+
+    <!-- Overview -->
+    <section class="glass-panel mb-4" id="overview">
+        <h2 class="h3 mb-3">Overview</h2>
+        <p>StartPage is a self-hosted, frecency-based link manager designed to serve as your browser start page. Links are dynamically ranked using a weighted algorithm that combines frequency and recency of access.</p>
+
+        <h3 class="h5 mt-4 mb-2">Key Features</h3>
+        <ul>
+            <li><strong>Frecency-based ranking</strong> - Links automatically prioritize based on usage patterns</li>
+            <li><strong>Tag system</strong> - Organize links with custom tags (personal, work, projects, etc.)</li>
+            <li><strong>Automatic pruning</strong> - Links with rank below 1 are automatically removed</li>
+            <li><strong>SQLite storage</strong> - No external database required</li>
+            <li><strong>FastAPI backend</strong> - High performance Python web framework</li>
+            <li><strong>HTMX frontend</strong> - Dynamic updates without page reloads</li>
+        </ul>
+    </section>
+
+    <!-- Deployment Options -->
+    <section class="glass-panel mb-4" id="deployment">
+        <h2 class="h3 mb-3">Deployment Options</h2>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Docker (Recommended)</h3>
+                    <p class="text-muted">Best for production deployments. Isolated environment with automatic restarts.</p>
+                    <ul>
+                        <li>Easy to deploy</li>
+                        <li>Consistent environment</li>
+                        <li>Automatic restart on failure</li>
+                        <li>Data persistence via volumes</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Local/Screen Session</h3>
+                    <p class="text-muted">Good for development or personal deployments on a dedicated server.</p>
+                    <ul>
+                        <li>Direct access to code</li>
+                        <li>Hot reload for development</li>
+                        <li>No containerization overhead</li>
+                        <li>Requires manual restart</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Docker Deployment -->
+    <section class="glass-panel mb-4" id="docker">
+        <h2 class="h3 mb-3">Docker Deployment</h2>
+
+        <h3 class="h5 mt-4 mb-2">Quick Start</h3>
+        <pre class="bg-dark text-light p-3 rounded"><code>make dockerbuild</code></pre>
+        <p class="small text-muted">This command builds the container and runs it with persistent storage at <code>~/.config/startpage</code></p>
+
+        <h3 class="h5 mt-4 mb-2">Manual Docker Commands</h3>
+        <p>Build the Docker image:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>docker build . -t startpage</code></pre>
+
+        <p>Run the container:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>docker run -d -p 8080:8080 \
+  --restart=always \
+  --name startpage \
+  -v ~/.config/startpage:/usr/startpage/data \
+  startpage</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Docker Configuration</h3>
+        <p>Environment variables you can set:</p>
+        <ul>
+            <li><code>WORKERS</code> - Number of Uvicorn workers (default: 2)</li>
+            <li><code>LOG_LEVEL</code> - Logging level (default: info)</li>
+        </ul>
+
+        <h3 class="h5 mt-4 mb-2">Accessing the Application</h3>
+        <p>Once running, access StartPage at: <code>http://localhost:8080</code></p>
+
+        <h3 class="h5 mt-4 mb-2">Docker Management</h3>
+        <pre class="bg-dark text-light p-3 rounded"><code># Stop the container
+docker stop startpage
+
+# Start the container
+docker start startpage
+
+# View logs
+docker logs startpage
+
+# Restart the container
+docker restart startpage
+
+# Remove the container
+docker rm -f startpage</code></pre>
+    </section>
+
+    <!-- Local Development -->
+    <section class="glass-panel mb-4" id="local">
+        <h2 class="h3 mb-3">Local Development</h2>
+
+        <h3 class="h5 mt-4 mb-2">Prerequisites</h3>
+        <ul>
+            <li>Python 3.10 or higher</li>
+            <li><a href="https://github.com/astral-sh/uv" target="_blank">uv</a> package manager</li>
+        </ul>
+
+        <h3 class="h5 mt-4 mb-2">Installation</h3>
+        <pre class="bg-dark text-light p-3 rounded"><code># Install dependencies
+uv sync
+# or
+make install</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Running Locally</h3>
+
+        <p><strong>Development mode (with hot reload):</strong></p>
+        <pre class="bg-dark text-light p-3 rounded"><code>make develop
+# or
+uv run uvicorn main:app --reload</code></pre>
+
+        <p><strong>Production mode (in screen session):</strong></p>
+        <pre class="bg-dark text-light p-3 rounded"><code>make run</code></pre>
+        <p class="small text-muted">This runs the app in a detached screen session. Use <code>screen -r</code> to attach.</p>
+
+        <p><strong>Standard run:</strong></p>
+        <pre class="bg-dark text-light p-3 rounded"><code>uv run uvicorn main:app</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Testing</h3>
+        <pre class="bg-dark text-light p-3 rounded"><code># Run all tests
+uv run pytest
+
+# Run specific test module
+uv run pytest services/test_db_utils.py
+
+# Type checking
+uv run mypy services</code></pre>
+    </section>
+
+    <!-- Database Management -->
+    <section class="glass-panel mb-4" id="database">
+        <h2 class="h3 mb-3">Database Management</h2>
+
+        <h3 class="h5 mt-4 mb-2">Database Location</h3>
+        <ul>
+            <li><strong>Local:</strong> <code>data/links.db</code></li>
+            <li><strong>Docker:</strong> <code>~/.config/startpage/links.db</code> (mounted from host)</li>
+        </ul>
+
+        <h3 class="h5 mt-4 mb-2">Schema Versions</h3>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Schema File</th>
+                    <th>Features</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1.x</td>
+                    <td>db_v1.sql</td>
+                    <td>Basic links, rank, config, metadata tables</td>
+                </tr>
+                <tr>
+                    <td>2.x</td>
+                    <td>db_v2.sql</td>
+                    <td>+ Tags and tag_link_map tables</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="h5 mt-4 mb-2">Checking Database Version</h3>
+        <pre class="bg-dark text-light p-3 rounded"><code>sqlite3 data/links.db "SELECT value FROM metadata WHERE name = 'db_version';"</code></pre>
+    </section>
+
+    <!-- Database Migration Guide -->
+    <section class="glass-panel mb-4" id="migration">
+        <h2 class="h3 mb-3">Database Migration Guide</h2>
+
+        <div class="alert alert-warning" role="alert">
+            <strong>⚠️ Important:</strong> Always backup your database before performing a migration!
+        </div>
+
+        <h3 class="h5 mt-4 mb-2">Automatic Migration</h3>
+        <p>StartPage automatically migrates your database when you upgrade to a new major version. The migration happens on the first application start after upgrading.</p>
+
+        <p><strong>How it works:</strong></p>
+        <ol>
+            <li>Application starts and reads the current database version from <code>metadata</code> table</li>
+            <li>Compares with the app version from <code>pyproject.toml</code></li>
+            <li>If major versions differ, runs the appropriate migration script from <code>sql_scripts/</code></li>
+            <li>Updates the <code>db_version</code> in the metadata table</li>
+        </ol>
+
+        <h3 class="h5 mt-4 mb-2">Migration from v1 to v2</h3>
+        <p>Version 2 adds the tagging feature. The migration adds two new tables:</p>
+        <ul>
+            <li><code>tags</code> - Stores tag definitions</li>
+            <li><code>tag_link_map</code> - Maps tags to links (many-to-many relationship)</li>
+        </ul>
+
+        <p><strong>Steps to migrate:</strong></p>
+        <pre class="bg-dark text-light p-3 rounded"><code># 1. Backup your database
+cp data/links.db data/links.db.backup
+
+# 2. Pull the latest code
+git pull origin main
+
+# 3. Install dependencies
+uv sync
+
+# 4. Start the application
+# Migration will run automatically
+uv run uvicorn main:app --reload
+
+# 5. Verify migration succeeded
+sqlite3 data/links.db "SELECT value FROM metadata WHERE name = 'db_version';"
+# Should output: 2.0.0</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Manual Migration (if needed)</h3>
+        <p>If automatic migration fails, you can run the migration script manually:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># Backup first!
+cp data/links.db data/links.db.backup
+
+# Run migration script
+sqlite3 data/links.db < sql_scripts/v1_to_v2.sql
+
+# Verify
+sqlite3 data/links.db "SELECT name FROM sqlite_master WHERE type='table';"
+# Should show: links, config, metadata, tags, tag_link_map</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Rolling Back a Migration</h3>
+        <p>If you need to roll back:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># Stop the application first
+docker stop startpage
+# or kill the uvicorn process
+
+# Restore from backup
+cp data/links.db.backup data/links.db
+
+# Checkout previous version
+git checkout v1.2.3
+
+# Restart application
+docker start startpage</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Migration Troubleshooting</h3>
+        <div class="glass-panel">
+            <p><strong>Problem:</strong> Migration script fails with "table already exists"</p>
+            <p><strong>Solution:</strong> Check if you're already on the target version. Run: <code>SELECT value FROM metadata WHERE name = 'db_version';</code></p>
+        </div>
+
+        <div class="glass-panel mt-3">
+            <p><strong>Problem:</strong> Application won't start after migration</p>
+            <p><strong>Solution:</strong> Check logs for errors. Verify database integrity: <code>sqlite3 data/links.db "PRAGMA integrity_check;"</code></p>
+        </div>
+    </section>
+
+    <!-- Backup and Restore -->
+    <section class="glass-panel mb-4" id="backup">
+        <h2 class="h3 mb-3">Backup and Restore</h2>
+
+        <h3 class="h5 mt-4 mb-2">Creating a Backup</h3>
+        <p><strong>Local deployment:</strong></p>
+        <pre class="bg-dark text-light p-3 rounded"><code>cp data/links.db data/links.db.backup-$(date +%Y%m%d)</code></pre>
+
+        <p><strong>Docker deployment:</strong></p>
+        <pre class="bg-dark text-light p-3 rounded"><code>cp ~/.config/startpage/links.db ~/.config/startpage/links.db.backup-$(date +%Y%m%d)</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Automated Backups</h3>
+        <p>Create a cron job for daily backups:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># Edit crontab
+crontab -e
+
+# Add this line (runs daily at 2 AM)
+0 2 * * * cp ~/.config/startpage/links.db ~/.config/startpage/backups/links-$(date +\%Y\%m\%d).db</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Restoring from Backup</h3>
+        <pre class="bg-dark text-light p-3 rounded"><code># Stop the application
+docker stop startpage
+
+# Restore the backup
+cp data/links.db.backup-20250101 data/links.db
+
+# Start the application
+docker start startpage</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Exporting Data</h3>
+        <p>Export to SQL format:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>sqlite3 data/links.db .dump > startpage-export.sql</code></pre>
+
+        <p>Export links to CSV:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>sqlite3 -header -csv data/links.db "SELECT * FROM links;" > links.csv</code></pre>
+    </section>
+
+    <!-- Configuration -->
+    <section class="glass-panel mb-4" id="configuration">
+        <h2 class="h3 mb-3">Configuration</h2>
+
+        <h3 class="h5 mt-4 mb-2">Application Settings</h3>
+        <p>Settings are stored in the <code>config</code> table in the database:</p>
+
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th>Setting</th>
+                    <th>Default</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>batch</td>
+                    <td>20</td>
+                    <td>Number of links to load per page</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="h5 mt-4 mb-2">Modifying Settings</h3>
+        <pre class="bg-dark text-light p-3 rounded"><code># Change batch size to 50
+sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Frecency Algorithm Parameters</h3>
+        <p>The ranking formula is defined in <code>services/db_utils.py</code>:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>score = 10000 * rank * (3.75 / ((0.0001 * (current_time - last_accessed) + 1) + 0.25))</code></pre>
+
+        <ul>
+            <li><code>rank</code> increments by 1 on each click</li>
+            <li>Links with rank < 1 are automatically deleted when total ranks exceed 1000</li>
+            <li>Remaining ranks are reduced by 1% during cleanup</li>
+        </ul>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section class="glass-panel mb-4" id="troubleshooting">
+        <h2 class="h3 mb-3">Troubleshooting</h2>
+
+        <div class="glass-panel mb-3">
+            <h3 class="h6">Application won't start</h3>
+            <p><strong>Check:</strong></p>
+            <ul>
+                <li>Port 8080 is not already in use: <code>lsof -i :8080</code></li>
+                <li>Database file permissions are correct</li>
+                <li>All dependencies are installed: <code>uv sync</code></li>
+            </ul>
+        </div>
+
+        <div class="glass-panel mb-3">
+            <h3 class="h6">Database is corrupted</h3>
+            <p><strong>Check integrity:</strong></p>
+            <pre class="bg-dark text-light p-3 rounded"><code>sqlite3 data/links.db "PRAGMA integrity_check;"</code></pre>
+            <p><strong>If corrupted:</strong> Restore from backup</p>
+        </div>
+
+        <div class="glass-panel mb-3">
+            <h3 class="h6">Links not appearing</h3>
+            <p><strong>Check:</strong></p>
+            <ul>
+                <li>Database has links: <code>sqlite3 data/links.db "SELECT COUNT(*) FROM links;"</code></li>
+                <li>Ranks are above pruning threshold (> 1.0)</li>
+                <li>Browser console for JavaScript errors</li>
+            </ul>
+        </div>
+
+        <div class="glass-panel mb-3">
+            <h3 class="h6">Tags not working</h3>
+            <p><strong>Check:</strong></p>
+            <ul>
+                <li>Database version is 2.x or higher</li>
+                <li>Tag tables exist: <code>sqlite3 data/links.db ".tables"</code></li>
+                <li>Run migration if on old version</li>
+            </ul>
+        </div>
+
+        <div class="glass-panel mb-3">
+            <h3 class="h6">Performance issues</h3>
+            <p><strong>Solutions:</strong></p>
+            <ul>
+                <li>Reduce batch size in config</li>
+                <li>Clean up old links with low ranks</li>
+                <li>Vacuum database: <code>sqlite3 data/links.db "VACUUM;"</code></li>
+                <li>Increase Docker workers (if using Docker)</li>
+            </ul>
+        </div>
+
+        <h3 class="h5 mt-4 mb-2">Getting Help</h3>
+        <p>For additional support:</p>
+        <ul>
+            <li>Check application logs</li>
+            <li>Review GitHub issues</li>
+            <li>Open a new issue with logs and configuration details</li>
+        </ul>
+    </section>
+
+    <!-- Footer -->
+    <section class="text-center py-4 text-muted">
+        <p>StartPage v2.0.0 - Administrator Guide</p>
+        <p class="small">Last updated: December 2025</p>
+    </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+
+</body>
+</html>

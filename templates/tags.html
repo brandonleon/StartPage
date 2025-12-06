@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="latte">
+{% include '_header.html' %}
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="container app-shell">
+    <section class="hero glass-panel mb-4">
+        <p class="text-uppercase text-muted small mb-1">Tag management</p>
+        <h1>Organize your links with tags.</h1>
+        <p>Tags help you categorize and filter your links. Create tags like "personal", "work", or "project-name" to stay organized.</p>
+    </section>
+
+    <section class="glass-panel">
+        <div class="mb-4">
+            <h2 class="h4 mb-3">All tags</h2>
+            {% if tags %}
+            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+                {% for tag in tags %}
+                <div class="col">
+                    <div class="glass-panel p-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="/tag/{{ tag.name }}" class="h5 mb-0 text-decoration-none">{{ tag.name }}</a>
+                            <div class="small text-muted">{{ tag.count }} link{% if tag.count != 1 %}s{% endif %}</div>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm"
+                                hx-confirm="Delete tag '{{ tag.name }}'? This will remove it from all links."
+                                hx-delete="/tag/{{ tag.id }}"
+                                hx-target="closest .col"
+                                hx-swap="outerHTML">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <p class="text-muted">No tags yet. Add tags to your links from the edit page.</p>
+                <a href="/dashboard" class="btn btn-outline-primary mt-2">Go to Dashboard</a>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+{% include '_footer.html' %}
+
+</body>
+</html>

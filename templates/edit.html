@@ -25,6 +25,52 @@
                         <button class="btn btn-primary flex-grow-1" type="submit">Save changes</button>
                     </div>
                 </form>
+
+                <hr class="my-4">
+
+                <div>
+                    <p class="text-uppercase text-muted small mb-1">Manage tags</p>
+                    <h2 class="h5 mb-3">Organize this link</h2>
+
+                    {% if tags %}
+                    <div class="mb-3">
+                        <p class="small text-muted mb-2">Current tags:</p>
+                        <div class="d-flex flex-wrap gap-2" id="current-tags">
+                            {% for tag in tags %}
+                            <div class="d-flex align-items-center gap-1 badge bg-primary">
+                                <span>{{ tag.name }}</span>
+                                <button type="button" class="btn-close btn-close-white" style="font-size: 0.6rem;"
+                                        hx-delete="/link/{{ link.id }}/tag/{{ tag.id }}"
+                                        hx-target="closest div"
+                                        hx-swap="outerHTML"
+                                        aria-label="Remove tag"></button>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <form action="/link/{{ link.id }}/tag" method="post">
+                        <div class="mb-3">
+                            <label for="tag_name" class="form-label">Add tag</label>
+                            <input type="text" class="form-control" id="tag_name" name="tag_name"
+                                   placeholder="e.g., personal, work, project-name" required>
+                            <div class="form-text">Tags are automatically lowercased. Use hyphens for multi-word tags.</div>
+                        </div>
+                        <button class="btn btn-outline-primary" type="submit">Add tag</button>
+                    </form>
+
+                    {% if all_tags %}
+                    <div class="mt-3">
+                        <p class="small text-muted mb-2">Existing tags:</p>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for tag in all_tags %}
+                            <span class="badge bg-light text-dark">{{ tag.name }} ({{ tag.count }})</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
             </section>
         </div>
     </div>

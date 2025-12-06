@@ -51,7 +51,7 @@ def get_links(page: int = 0, batch: int = 20) -> List[dict]:
         batch (int): Number of links to return per page.
 
     Returns:
-        list: List of links.
+        list: List of links with their tags.
     """
     page *= batch
 
@@ -66,17 +66,25 @@ def get_links(page: int = 0, batch: int = 20) -> List[dict]:
         {"page": page, "batch": batch},
     )
     rows = cur.fetchall()
-    con.close()
-    return [
-        dict(
-            id=row["id"],
-            url=row["url"],
-            name=row["name"],
-            rank=row["rank"],
-            accessed=timeago.format(row["accessed"]),
+
+    links = []
+    for row in rows:
+        link_id = row["id"]
+        # Get tags for this link
+        tags = get_tags_for_link(link_id)
+        links.append(
+            dict(
+                id=link_id,
+                url=row["url"],
+                name=row["name"],
+                rank=row["rank"],
+                accessed=timeago.format(row["accessed"]),
+                tags=tags,
+            )
         )
-        for row in rows
-    ]
+
+    con.close()
+    return links
 
 
 def _get_batch_size(cur: sqlite3.Cursor) -> int:
@@ -306,7 +314,7 @@ def search_links(query: str) -> List[Dict[str, str]]:
         query (str): Search query.
 
     Returns:
-        List[Dict[str, str]]: Links.
+        List[Dict[str, str]]: Links with their tags.
     """
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
@@ -321,16 +329,221 @@ def search_links(query: str) -> List[Dict[str, str]]:
     )
     rows = cur.fetchall()
     con.close()
-    return [
-        {
-            "id": row["id"],
-            "name": row["name"],
-            "url": row["url"],
-            "rank": row["rank"],
-            "accessed": timeago.format(row["accessed"]),
-        }
-        for row in rows
-    ]
+
+    links = []
+    for row in rows:
+        link_id = row["id"]
+        tags = get_tags_for_link(link_id)
+        links.append(
+            {
+                "id": link_id,
+                "name": row["name"],
+                "url": row["url"],
+                "rank": row["rank"],
+                "accessed": timeago.format(row["accessed"]),
+                "tags": tags,
+            }
+        )
+    return links
+
+
+# Tag management functions
+def get_all_tags() -> List[Dict[str, any]]:
+    """
+    Get all tags with their counts.
+
+    Returns:
+        List[Dict[str, any]]: List of tags with id, name, and count.
+    """
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    cur.execute("SELECT id, name, count FROM tags ORDER BY name ASC")
+    rows = cur.fetchall()
+    con.close()
+    return [{"id": row["id"], "name": row["name"], "count": row["count"]} for row in rows]
+
+
+def get_tags_for_link(link_id: str) -> List[Dict[str, str]]:
+    """
+    Get all tags for a specific link.
+
+    Parameters:
+        link_id (str): Link id.
+
+    Returns:
+        List[Dict[str, str]]: List of tags with id and name.
+    """
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    cur.execute(
+        "SELECT t.id, t.name FROM tags t "
+        "INNER JOIN tag_link_map tlm ON t.id = tlm.tag_id "
+        "WHERE tlm.link_id = :link_id "
+        "ORDER BY t.name ASC",
+        {"link_id": link_id},
+    )
+    rows = cur.fetchall()
+    con.close()
+    return [{"id": row["id"], "name": row["name"]} for row in rows]
+
+
+def add_tag_to_link(link_id: str, tag_name: str) -> bool:
+    """
+    Add a tag to a link. Creates the tag if it doesn't exist.
+
+    Parameters:
+        link_id (str): Link id.
+        tag_name (str): Tag name.
+
+    Returns:
+        bool: True if tag was added successfully.
+    """
+    tag_name = tag_name.strip().lower()
+    if not tag_name:
+        return False
+
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    # Get or create tag
+    cur.execute("SELECT id FROM tags WHERE name = :name", {"name": tag_name})
+    tag_row = cur.fetchone()
+
+    if tag_row:
+        tag_id = tag_row["id"]
+    else:
+        tag_id = str(uuid4())
+        cur.execute(
+            "INSERT INTO tags (id, name, count) VALUES (:id, :name, 0)",
+            {"id": tag_id, "name": tag_name},
+        )
+
+    # Check if link-tag mapping already exists
+    cur.execute(
+        "SELECT 1 FROM tag_link_map WHERE tag_id = :tag_id AND link_id = :link_id",
+        {"tag_id": tag_id, "link_id": link_id},
+    )
+
+    if not cur.fetchone():
+        # Add mapping and update count
+        cur.execute(
+            "INSERT INTO tag_link_map (tag_id, link_id) VALUES (:tag_id, :link_id)",
+            {"tag_id": tag_id, "link_id": link_id},
+        )
+        cur.execute(
+            "UPDATE tags SET count = (SELECT COUNT(*) FROM tag_link_map WHERE tag_id = :tag_id) WHERE id = :tag_id",
+            {"tag_id": tag_id},
+        )
+
+    con.commit()
+    con.close()
+    return True
+
+
+def remove_tag_from_link(link_id: str, tag_id: str) -> bool:
+    """
+    Remove a tag from a link.
+
+    Parameters:
+        link_id (str): Link id.
+        tag_id (str): Tag id.
+
+    Returns:
+        bool: True if tag was removed successfully.
+    """
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+
+    cur.execute(
+        "DELETE FROM tag_link_map WHERE tag_id = :tag_id AND link_id = :link_id",
+        {"tag_id": tag_id, "link_id": link_id},
+    )
+
+    # Update tag count
+    cur.execute(
+        "UPDATE tags SET count = (SELECT COUNT(*) FROM tag_link_map WHERE tag_id = :tag_id) WHERE id = :tag_id",
+        {"tag_id": tag_id},
+    )
+
+    # Delete tag if count is 0
+    cur.execute("DELETE FROM tags WHERE id = :tag_id AND count = 0", {"tag_id": tag_id})
+
+    con.commit()
+    con.close()
+    return True
+
+
+def delete_tag(tag_id: str) -> bool:
+    """
+    Delete a tag completely (removes all link associations).
+
+    Parameters:
+        tag_id (str): Tag id.
+
+    Returns:
+        bool: True if tag was deleted successfully.
+    """
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+
+    cur.execute("DELETE FROM tag_link_map WHERE tag_id = :tag_id", {"tag_id": tag_id})
+    cur.execute("DELETE FROM tags WHERE id = :tag_id", {"tag_id": tag_id})
+
+    con.commit()
+    con.close()
+    return True
+
+
+def get_links_by_tag(tag_name: str, page: int = 0, batch: int = 20) -> List[dict]:
+    """
+    Get links filtered by tag name, sorted by frecency.
+
+    Parameters:
+        tag_name (str): Tag name to filter by.
+        page (int): Page number.
+        batch (int): Number of links to return per page.
+
+    Returns:
+        list: List of links with the specified tag, including all their tags.
+    """
+    page *= batch
+
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    cur.execute(
+        "SELECT l.id, l.url, l.name, l.rank, l.accessed "
+        "FROM links l "
+        "INNER JOIN tag_link_map tlm ON l.id = tlm.link_id "
+        "INNER JOIN tags t ON tlm.tag_id = t.id "
+        "WHERE t.name = :tag_name "
+        "ORDER BY 10000 * l.rank * (3.75/((0.0001 * (strftime('%s','now') - l.accessed) + 1) + 0.25)) DESC "
+        "LIMIT :page, :batch",
+        {"tag_name": tag_name, "page": page, "batch": batch},
+    )
+    rows = cur.fetchall()
+    con.close()
+
+    links = []
+    for row in rows:
+        link_id = row["id"]
+        tags = get_tags_for_link(link_id)
+        links.append(
+            dict(
+                id=link_id,
+                url=row["url"],
+                name=row["name"],
+                rank=row["rank"],
+                accessed=timeago.format(row["accessed"]),
+                tags=tags,
+            )
+        )
+
+    return links
 
 
 # Get database statistics.

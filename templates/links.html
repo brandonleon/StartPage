@@ -2,7 +2,11 @@
     {% for link in links %}
         <li class="list-group-item flex-column align-items-start"
             {% if next_page and loop.index == 20 %}
-                hx-get="/links/{{ next_page }}"
+                {% if filtered_tag %}
+                    hx-get="/tag/{{ filtered_tag }}/links/{{ next_page }}"
+                {% else %}
+                    hx-get="/links/{{ next_page }}"
+                {% endif %}
                 hx-trigger="revealed"
                 hx-swap="afterend"
             {% endif %}>
@@ -17,6 +21,13 @@
                            data-bs-delay="200"
                            title="{{ link.url }}">{{ link.name }}</a>
                         <div class="text-muted small link-url">{{ link.url }}</div>
+                        {% if link.tags %}
+                        <div class="mt-2">
+                            {% for tag in link.tags %}
+                            <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="link-metadata text-md-end">
                         <span class="tag">Rank {{ "%.2f"|format(link.rank) }}</span>

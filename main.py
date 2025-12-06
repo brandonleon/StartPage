@@ -12,7 +12,7 @@ import services.app_config as ap
 import services.db_utils as db_utils
 
 # Initialize the database, with the current app version.
-db_utils.init_db("1")
+db_utils.init_db("2")
 
 config = {}  # Global config dictionary, str: object, or str: str.
 # app_config = ap.AppConfig("1.0.0", db)
@@ -58,6 +58,7 @@ async def favicon():
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
+    tags = db_utils.get_all_tags()
     return templates.TemplateResponse(
         "index.html",
         template_context(
@@ -65,6 +66,7 @@ async def root(request: Request, page: int = 0):
             links=lks,
             page=page,
             title=f"{config['app_name']} · Home",
+            all_tags=tags,
         ),
     )
 
@@ -73,6 +75,7 @@ async def root(request: Request, page: int = 0):
 @app.get("/dashboard/", response_class=HTMLResponse)
 async def dashboard(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
+    tags = db_utils.get_all_tags()
     return templates.TemplateResponse(
         "dashboard.html",
         template_context(
@@ -80,6 +83,7 @@ async def dashboard(request: Request, page: int = 0):
             links=lks,
             page=page,
             title=f"{config['app_name']} · Dashboard",
+            all_tags=tags,
         ),
     )
 
@@ -168,11 +172,16 @@ async def redirect(background_tasks: BackgroundTasks, link_id):
 # edit individual link
 @app.get("/edit/{link_id}", response_class=HTMLResponse)
 async def edit(request: Request, link_id):
+    link = db_utils.get_link(link_id, False)
+    tags = db_utils.get_tags_for_link(link_id)
+    all_tags = db_utils.get_all_tags()
     return templates.TemplateResponse(
         "edit.html",
         template_context(
             request=request,
-            link=db_utils.get_link(link_id, False),
+            link=link,
+            tags=tags,
+            all_tags=all_tags,
             title=f"{config['app_name']} · Edit Link",
         ),
     )
@@ -217,6 +226,76 @@ async def stats_page(request: Request):
             request=request,
             title=f"{config['app_name']} · Statistics",
             stats=stats,
+        ),
+    )
+
+
+# Tag management routes
+@app.get("/tags", response_class=HTMLResponse)
+async def tags_page(request: Request):
+    tags = db_utils.get_all_tags()
+    return templates.TemplateResponse(
+        "tags.html",
+        template_context(
+            request=request,
+            title=f"{config['app_name']} · Tags",
+            tags=tags,
+        ),
+    )
+
+
+@app.post("/link/{link_id}/tag", response_class=HTMLResponse)
+async def add_tag(link_id: str, tag_name: str = Form(...)):
+    db_utils.add_tag_to_link(link_id, tag_name)
+    return RedirectResponse(app.url_path_for("root"), status_code=302)
+
+
+@app.delete("/link/{link_id}/tag/{tag_id}", response_class=HTMLResponse)
+async def remove_tag(request: Request, link_id: str, tag_id: str):
+    db_utils.remove_tag_from_link(link_id, tag_id)
+    return templates.TemplateResponse(
+        "tag_removed.html",
+        template_context(request=request),
+    )
+
+
+@app.delete("/tag/{tag_id}", response_class=HTMLResponse)
+async def delete_tag_route(request: Request, tag_id: str):
+    db_utils.delete_tag(tag_id)
+    return templates.TemplateResponse(
+        "tag_deleted.html",
+        template_context(request=request),
+    )
+
+
+@app.get("/tag/{tag_name}", response_class=HTMLResponse)
+async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
+    lks = db_utils.get_links_by_tag(tag_name, page)
+    tags = db_utils.get_all_tags()
+    return templates.TemplateResponse(
+        "index.html",
+        template_context(
+            request=request,
+            links=lks,
+            page=page,
+            title=f"{config['app_name']} · Tag: {tag_name}",
+            filtered_tag=tag_name,
+            all_tags=tags,
+        ),
+    )
+
+
+@app.get("/tag/{tag_name}/links/{page}", response_class=HTMLResponse)
+async def tag_links_page(request: Request, tag_name: str, page: int):
+    lks = db_utils.get_links_by_tag(tag_name, page)
+    return templates.TemplateResponse(
+        "links.html",
+        template_context(
+            request=request,
+            links=lks,
+            page=page,
+            next_page=page + 1,
+            filtered_tag=tag_name,
         ),
     )
 
