@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`main.py` bootstraps the FastAPI app, loads config, and wires Jinja templates. Domain logic lives in `services/` (`db_utils.py` for SQLite access, `app_config.py` for metadata, `io_utils.py` helpers); keep new helpers module-scoped there. HTML resides in `templates/` (Jinja fragments such as `index.html` and `dashboard.html`), while static assets (favicon, CSS) belong under `static/`. SQL migrations stay in `sql_scripts/` and the runtime database is stored under `data/links.db`—treat it as disposable state, not source. Low-level service tests live alongside their modules (e.g., `services/test_db_utils.py`), and higher-level FastAPI tests belong at the repo root when added.
+`main.py` bootstraps the FastAPI app, loads config, and wires Jinja templates. Domain logic lives in `services/` (`db_utils.py` for SQLite access, `app_config.py` for metadata, `io_utils.py` helpers, `tags.py` for tag bookkeeping); keep new helpers module-scoped there. HTML resides in `templates/` (Jinja fragments such as `index.html`, `dashboard.html`, `tags.html`, `stats.html`), while static assets (favicon, CSS, theme/search JS) belong under `static/`. The standalone administrator guide sits in `docs/index.html` and shares the same styles. SQL migrations stay in `sql_scripts/` and the runtime database is stored under `data/links.db`—treat it as disposable state, not source. Low-level service tests live alongside their modules (e.g., `services/test_db_utils.py`), and higher-level FastAPI tests belong at the repo root when added.
 
 ## Build, Test, and Development Commands
 - `uv sync`: install Python 3.10 dependencies defined in `pyproject.toml`.

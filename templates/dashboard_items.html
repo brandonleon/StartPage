@@ -18,17 +18,23 @@
         <article class="glass-panel h-100 d-flex flex-column justify-content-between">
             <div class="mb-3">
                 <div class="d-flex flex-column gap-2">
-                    <div class="d-flex justify-content-between align-items-start gap-2">
-                        <div class="link-content">
-                            <h2 class="h5 mb-1">{{ link.name }}</h2>
-                            <a class="text-muted small link-url" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
-                            {% if link.tags %}
-                            <div class="mt-2">
-                                {% for tag in link.tags %}
-                                <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
-                                {% endfor %}
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div class="d-flex align-items-start gap-2 w-100">
+                            <div class="form-check mt-1">
+                                <input class="form-check-input" type="checkbox" name="selected_links" value="{{ link.id }}"
+                                       id="select-{{ link.id }}" data-bulk-checkbox aria-label="Select {{ link.name }}">
                             </div>
-                            {% endif %}
+                            <div class="link-content">
+                                <h2 class="h5 mb-1">{{ link.name }}</h2>
+                                <a class="text-muted small link-url" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
+                                {% if link.tags %}
+                                <div class="mt-2">
+                                    {% for tag in link.tags %}
+                                    <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                         <span class="badge {{ badge_class }} flex-shrink-0">{{ badge_text }} · {{ "%.2f"|format(link.rank) }}</span>
                     </div>

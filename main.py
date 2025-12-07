@@ -1,4 +1,5 @@
 import sqlite3
+from typing import List
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Form, Request
@@ -224,6 +225,26 @@ async def delete(request: Request, link_id):
         "delete.html",
         template_context(request=request),
     )
+
+
+@app.post("/dashboard/bulk-delete")
+async def bulk_delete(selected_links: List[str] = Form(default=[])):
+    if selected_links:
+        for link_id in selected_links:
+            db_utils.delete_link(link_id)
+    return RedirectResponse(app.url_path_for("dashboard"), status_code=303)
+
+
+@app.post("/dashboard/bulk-tag")
+async def bulk_tag(selected_links: List[str] = Form(default=[]), tag_names: str = Form(...)):
+    tags = [tag.strip() for tag in tag_names.split(",") if tag.strip()]
+    if not selected_links or not tags:
+        return RedirectResponse(app.url_path_for("dashboard"), status_code=303)
+
+    for link_id in selected_links:
+        for tag in tags:
+            db_utils.add_tag_to_link(link_id, tag)
+    return RedirectResponse(app.url_path_for("dashboard"), status_code=303)
 
 
 @app.get("/help", response_class=HTMLResponse)
