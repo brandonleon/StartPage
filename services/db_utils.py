@@ -9,14 +9,10 @@ from uuid import uuid4
 import timeago
 import tomlkit
 
+from services import app_config
+
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
-DEFAULT_BATCH_SIZE = 20
-DEFAULT_MAX_RANK = 1000
-DEFAULT_TEMP_LINK_ENABLED = True
-DEFAULT_TEMP_LINK_TTL_HOURS = 24
-DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS = 24 * 30
-DEFAULT_TEMP_LINK_PURGE_INTERVAL_SECONDS = 600
 TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
 
@@ -169,7 +165,7 @@ def get_links(page: int = 0, batch: Optional[int] = None) -> List[dict]:
 
     cur = con.cursor()
     if batch is None:
-        batch = _get_batch_size(cur)
+        batch = app_config.get_runtime_config().frecency.batch_size
     offset = page * batch
     cur.execute(
         "SELECT id, url, name, rank, accessed, expires_at fROM links "
@@ -185,90 +181,14 @@ def get_links(page: int = 0, batch: Optional[int] = None) -> List[dict]:
     return links
 
 
-def _get_batch_size(cur: sqlite3.Cursor) -> int:
-    """
-    Helper to read the configured batch size from the config table.
-    Defaults to 20 when the setting is missing or invalid.
-    """
-    cur.execute(
-        "SELECT value FROM config WHERE name = 'batch' LIMIT 1;"
-    )
-    row = cur.fetchone()
-    try:
-        return max(1, int(row[0])) if row and row[0] is not None else DEFAULT_BATCH_SIZE
-    except (TypeError, ValueError):
-        return DEFAULT_BATCH_SIZE
-
-
-def _get_max_rank(cur: sqlite3.Cursor) -> int:
-    """Read the max_rank pruning limit stored in config."""
-    cur.execute(
-        "SELECT value FROM config WHERE name = 'max_rank' LIMIT 1;"
-    )
-    row = cur.fetchone()
-    try:
-        return max(1, int(row[0])) if row and row[0] is not None else DEFAULT_MAX_RANK
-    except (TypeError, ValueError):
-        return DEFAULT_MAX_RANK
-
-
-def _parse_bool(value: Optional[str], default: bool) -> bool:
-    if value is None:
-        return default
-    return str(value).strip().lower() not in {"false", "0", "no", "off", ""}
-
-
-def _parse_int(value: Optional[str], default: int, minimum: int = 1, maximum: Optional[int] = None) -> int:
-    if value is None:
-        result = default
-    else:
-        try:
-            result = int(value)
-        except (TypeError, ValueError):
-            result = default
-    result = max(minimum, result)
-    if maximum is not None:
-        result = min(maximum, result)
-    return result
-
-
 def get_temp_link_config() -> Dict[str, int | bool]:
-    """Return persisted settings related to temporary link behavior."""
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    cur.execute(
-        "SELECT name, value FROM config WHERE name IN ("
-        "'temp_links_enabled', "
-        "'temp_links_default_ttl_hours', "
-        "'temp_links_max_custom_hours', "
-        "'temp_links_purge_interval_seconds'"
-        ")"
-    )
-    rows = {name: value for name, value in cur.fetchall()}
-    con.close()
-    enabled = _parse_bool(rows.get("temp_links_enabled"), DEFAULT_TEMP_LINK_ENABLED)
-    default_hours = _parse_int(
-        rows.get("temp_links_default_ttl_hours"),
-        DEFAULT_TEMP_LINK_TTL_HOURS,
-        1,
-        DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS,
-    )
-    max_hours = _parse_int(
-        rows.get("temp_links_max_custom_hours"),
-        DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS,
-        default_hours,
-        DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS,
-    )
-    purge_interval_seconds = _parse_int(
-        rows.get("temp_links_purge_interval_seconds"),
-        DEFAULT_TEMP_LINK_PURGE_INTERVAL_SECONDS,
-        60,
-    )
+    """Return runtime temp-link settings."""
+    temp_config = app_config.get_runtime_config().temp_links
     return {
-        "enabled": enabled,
-        "default_ttl_hours": default_hours,
-        "max_custom_hours": max_hours,
-        "purge_interval_seconds": purge_interval_seconds,
+        "enabled": temp_config.enabled,
+        "default_ttl_hours": temp_config.default_ttl_hours,
+        "max_custom_hours": temp_config.max_custom_hours,
+        "purge_interval_seconds": temp_config.purge_interval_seconds,
     }
 
 
@@ -279,78 +199,30 @@ def update_temp_link_config(
     purge_interval_seconds: int,
 ) -> Dict[str, int | bool]:
     """Persist validated temporary-link settings and return the stored values."""
-    default_ttl_hours = max(1, default_ttl_hours)
-    max_custom_hours = max(default_ttl_hours, max_custom_hours)
-    max_custom_hours = min(DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS, max_custom_hours)
-    default_ttl_hours = min(max_custom_hours, default_ttl_hours)
-    purge_interval_seconds = max(60, purge_interval_seconds)
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    _upsert_config_value(cur, "temp_links_enabled", "1" if enabled else "0")
-    _upsert_config_value(
-        cur,
-        "temp_links_default_ttl_hours",
-        str(min(max_custom_hours, default_ttl_hours)),
+    config = app_config.update_temp_link_settings(
+        enabled,
+        default_ttl_hours,
+        max_custom_hours,
+        purge_interval_seconds,
     )
-    _upsert_config_value(
-        cur,
-        "temp_links_max_custom_hours",
-        str(max_custom_hours),
-    )
-    _upsert_config_value(
-        cur,
-        "temp_links_purge_interval_seconds",
-        str(purge_interval_seconds),
-    )
-    con.commit()
-    con.close()
+    temp_config = config.temp_links
     return {
-        "enabled": enabled,
-        "default_ttl_hours": min(max_custom_hours, default_ttl_hours),
-        "max_custom_hours": max_custom_hours,
-        "purge_interval_seconds": purge_interval_seconds,
+        "enabled": temp_config.enabled,
+        "default_ttl_hours": temp_config.default_ttl_hours,
+        "max_custom_hours": temp_config.max_custom_hours,
+        "purge_interval_seconds": temp_config.purge_interval_seconds,
     }
-
-
-def _ensure_config_defaults() -> None:
-    """Ensure new config rows exist for deployments created before this release."""
-    defaults = {
-        "batch": str(DEFAULT_BATCH_SIZE),
-        "max_rank": str(DEFAULT_MAX_RANK),
-        "temp_links_enabled": "1" if DEFAULT_TEMP_LINK_ENABLED else "0",
-        "temp_links_default_ttl_hours": str(DEFAULT_TEMP_LINK_TTL_HOURS),
-        "temp_links_max_custom_hours": str(DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS),
-        "temp_links_purge_interval_seconds": str(
-            DEFAULT_TEMP_LINK_PURGE_INTERVAL_SECONDS
-        ),
-    }
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    for name, value in defaults.items():
-        cur.execute(
-            "INSERT OR IGNORE INTO config (id, name, value) VALUES (:id, :name, :value)",
-            {"id": str(uuid4()), "name": name, "value": value},
-        )
-    con.commit()
-    con.close()
 
 
 def get_count() -> Dict[str, int]:
-    """
-    Return the number of links in the database and the total number of pages.
-
-    The page count is derived from the configured batch size.
-    """
+    """Return the number of links currently stored in the database."""
     purge_expired_links()
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     cur.execute("SELECT COUNT(*) FROM links;")
     total_links = cur.fetchone()[0] or 0
-    batch_size = _get_batch_size(cur)
     con.close()
-
-    pages = (total_links + batch_size - 1) // batch_size
-    return {"count": total_links, "pages": pages}
+    return {"count": total_links}
 
 
 # delete link by id
@@ -403,7 +275,7 @@ def init_db(cur_version: str) -> None:
             cur.executescript(sql_file.read())
             con.commit()
     con.close()
-    _ensure_config_defaults()
+    app_config.ensure_config_file()
     _ensure_expires_column()
 
 
@@ -464,59 +336,30 @@ def save_link(
             return link_id
 
 
-# Read config from data
-def read_config() -> Dict[str, str]:
+# Read metadata from database
+def read_metadata() -> Dict[str, str]:
     """
-    Read config from database.
-
-    Returns:
-        Dict[str, str]: Config name and value.
+    Read metadata key/value pairs from the database.
     """
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     cur.execute("SELECT name, value fROM metadata;")
     d = {row["name"]: row["value"] for row in cur.fetchall()}
-
-    cur.execute("SELECT name, value FROM config")
-    d |= {row["name"]: row["value"] for row in cur.fetchall()}
     con.close()
     return d
 
 
 def get_frecency_config() -> Dict[str, int]:
     """Return the current batch size and max rank thresholds."""
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    batch_size = _get_batch_size(cur)
-    max_rank = _get_max_rank(cur)
-    con.close()
-    return {"batch_size": batch_size, "max_rank": max_rank}
-
-
-def _upsert_config_value(cur: sqlite3.Cursor, name: str, value: str) -> None:
-    cur.execute(
-        "UPDATE config SET value = :value WHERE name = :name",
-        {"name": name, "value": value},
-    )
-    if cur.rowcount == 0:
-        cur.execute(
-            "INSERT INTO config (id, name, value) VALUES (:id, :name, :value)",
-            {"id": str(uuid4()), "name": name, "value": value},
-        )
+    frecency = app_config.get_runtime_config().frecency
+    return {"batch_size": frecency.batch_size, "max_rank": frecency.max_rank}
 
 
 def update_frecency_config(batch_size: int, max_rank: int) -> Dict[str, int]:
     """Persist validated frecency settings and return the stored values."""
-    batch_size = max(1, batch_size)
-    max_rank = max(1, max_rank)
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    _upsert_config_value(cur, "batch", str(batch_size))
-    _upsert_config_value(cur, "max_rank", str(max_rank))
-    con.commit()
-    con.close()
-    return {"batch_size": batch_size, "max_rank": max_rank}
+    updated = app_config.update_frecency_settings(batch_size, max_rank).frecency
+    return {"batch_size": updated.batch_size, "max_rank": updated.max_rank}
 
 
 # Upgrade the database
@@ -557,7 +400,7 @@ def decrement_rank(max_rank: Optional[int] = None) -> None:
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     if max_rank is None:
-        max_rank = _get_max_rank(cur)
+        max_rank = app_config.get_runtime_config().frecency.max_rank
     cur.execute("SELECT sum(rank) FROM links")
     total_rank = cur.fetchone()[0]
     # total_rank will be None if there are no links in the database.
@@ -848,7 +691,7 @@ def get_links_by_tag(tag_name: str, page: int = 0, batch: Optional[int] = None) 
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     if batch is None:
-        batch = _get_batch_size(cur)
+        batch = app_config.get_runtime_config().frecency.batch_size
     offset = page * batch
 
     cur.execute(
@@ -929,8 +772,9 @@ def get_stats() -> Dict[str, Any]:
     least_links = cur.fetchall()
 
     # Get batch size configuration
-    batch_size = _get_batch_size(cur)
-    max_rank = _get_max_rank(cur)
+    frecency = app_config.get_runtime_config().frecency
+    batch_size = frecency.batch_size
+    max_rank = frecency.max_rank
 
     con.close()
 

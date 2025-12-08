@@ -42,7 +42,7 @@
                     {% if errors.batch_size %}
                     <div class="invalid-feedback d-block">{{ errors.batch_size }}</div>
                     {% endif %}
-                    <div class="form-text">Currently showing {{ counts.pages }} pages × {{ frecency.batch_size }} links ({{ counts.count }} total).</div>
+                    <div class="form-text">Each infinite-scroll request loads {{ frecency.batch_size }} links. Adjust to show more or fewer links per batch.</div>
                 </div>
 
                 <div class="mb-4">
@@ -146,9 +146,8 @@
                 <p class="text-uppercase text-muted small mb-1">Current snapshot</p>
                 <h2 class="h5">At a glance</h2>
                 <ul class="list-unstyled mt-3 mb-0">
-                    <li class="mb-2"><strong>{{ counts.count }}</strong> active links in rotation</li>
-                    <li class="mb-2"><strong>{{ counts.pages }}</strong> pages rendered at {{ frecency.batch_size }} links each</li>
-                    <li class="mb-2">Cleanup triggers when the summed rank crosses <strong>{{ frecency.max_rank }}</strong></li>
+                    <li class="mb-2">Current batch size: <strong>{{ frecency.batch_size }}</strong> links per load.</li>
+                    <li class="mb-2">Cleanup triggers when the summed rank crosses <strong>{{ frecency.max_rank }}</strong>.</li>
                     <li class="mb-2">Temporary links default to <strong>{{ temp_link_default_hours }}</strong> hours and are cleaned every <strong>{{ temp_link_purge_interval_minutes }}</strong> minutes.</li>
                     <li class="mb-0">See the <a href="/stats">statistics dashboard</a> for detailed rank metrics.</li>
                 </ul>

@@ -1,14 +1,31 @@
+import os
 import sqlite3
+from pathlib import Path
 from time import time
 from uuid import uuid4
 
-import services.db_utils as db_utils
+TEST_CONFIG_PATH = Path(__file__).resolve().parent / "test_config.toml"
+os.environ["STARTPAGE_CONFIG_PATH"] = str(TEST_CONFIG_PATH)
+
+import services.db_utils as db_utils  # noqa: E402
+from services import app_config  # noqa: E402
+
+
+def setup_module(module):
+    if TEST_CONFIG_PATH.exists():
+        TEST_CONFIG_PATH.unlink()
+    app_config.reload_runtime_config()
+
+
+def teardown_module(module):
+    if TEST_CONFIG_PATH.exists():
+        TEST_CONFIG_PATH.unlink()
+    app_config.reload_runtime_config()
 
 
 # Ensure count and pages are integers
 def test_get_count():
     assert isinstance(db_utils.get_count()["count"], int)
-    assert isinstance(db_utils.get_count()["pages"], int)
 
 
 # Ensure a list of links is returned

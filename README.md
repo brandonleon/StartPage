@@ -74,7 +74,7 @@ The algorithm ensures that:
 - Choose a preset (Default, 24 hours, 7 days) or enter a custom duration in hours; admins decide what "Default" means in Settings.
 - Temporary links are highlighted on the home view and dashboard with a badge that shows how long remains before cleanup.
 - Expired links are removed from the database during reads and via a background cleanup loop, so stale entries never appear in responses.
-- Tune the feature under `/settings`: toggle temporary links on/off, change the default duration, set a maximum custom duration, and adjust the cleanup cadence. Values are stored in the SQLite `config` table so they take effect immediately without editing environment variables.
+- Tune the feature under `/settings`: toggle temporary links on/off, change the default duration, set a maximum custom duration, and adjust the cleanup cadence. Values are stored in the root `config.toml` file so they take effect immediately without touching SQLite.
 
 ### Managing Tags
 - **Add tags**: Include them when creating/editing links in the tag field
@@ -91,6 +91,7 @@ The algorithm ensures that:
 ### Frecency Settings
 - Visit `/settings` (or the navbar link) to adjust the links-per-page batch size and the max rank pool used during pruning
 - Settings are validated server-side and apply immediately; refresh open tabs to pick up changes
+- Advanced deployments can point `STARTPAGE_CONFIG_PATH` at another writable TOML file if the default `config.toml` should live elsewhere.
 
 ### Theme Switching
 Click the theme toggle in the navbar to switch between dark (mocha) and light (latte) modes. Theme preference is stored in localStorage.

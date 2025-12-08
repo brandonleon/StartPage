@@ -24,19 +24,17 @@ def _refresh_temp_link_settings() -> None:
     global temp_link_settings
     temp_link_settings = db_utils.get_temp_link_config()
 
-config = {}  # Global config dictionary, str: object, or str: str.
-# app_config = ap.AppConfig("1.0.0", db)
-
-# Read config values from the database, if they exist.
-# else set version to 0.0
+config: Dict[str, object] = {}
 try:
-    config = db_utils.read_config()
-    config["db_version"] = parse(config["db_version"])
+    metadata = db_utils.read_metadata()
+    db_version_raw = metadata.get("db_version", "0.0")
 except sqlite3.OperationalError:
-    config["db_version"] = parse("0.0")
+    db_version_raw = "0.0"
+config["db_version"] = parse(str(db_version_raw))
 
-config["app_version"] = parse(db_utils.get_app_metadata()["version"])
-config["app_name"] = db_utils.get_app_metadata()["name"]
+app_metadata = db_utils.get_app_metadata()
+config["app_version"] = parse(app_metadata["version"])
+config["app_name"] = app_metadata["name"]
 
 if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
@@ -415,7 +413,6 @@ async def stats_page(request: Request):
 async def settings_page(request: Request):
     _refresh_temp_link_settings()
     frecency = db_utils.get_frecency_config()
-    counts = db_utils.get_count()
     saved = request.query_params.get("saved") == "1"
     temp_config = temp_link_settings
     form_values = {
@@ -432,7 +429,6 @@ async def settings_page(request: Request):
             request=request,
             title=f"{config['app_name']} · Settings",
             frecency=frecency,
-            counts=counts,
             form_values=form_values,
             errors={},
             saved=saved,
@@ -463,7 +459,6 @@ async def update_settings(
         errors["temp_link_purge_interval_minutes"] = "Cleanup interval must be between 1 minute and 24 hours."
 
     if errors:
-        counts = db_utils.get_count()
         frecency = db_utils.get_frecency_config()
         form_values = {
             "batch_size": batch_size,
@@ -479,7 +474,6 @@ async def update_settings(
                 request=request,
                 title=f"{config['app_name']} · Settings",
                 frecency=frecency,
-                counts=counts,
                 form_values=form_values,
                 errors=errors,
                 saved=False,

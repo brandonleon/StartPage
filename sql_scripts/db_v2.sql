@@ -7,15 +7,6 @@ CREATE TABLE IF NOT EXISTS links
  expires_at integer
 );
 
-CREATE TABLE IF NOT EXISTS config
-(id VARCHAR(36) not null primary key,
- name TEXT not null unique,
- value TEXT not null
-);
-
-INSERT INTO config (id, name, value) VALUES ('1', 'batch', '20');
-INSERT INTO config (id, name, value) VALUES ('2', 'max_rank', '1000');
-
 CREATE TABLE IF NOT EXISTS metadata
 (id VARCHAR(36) not null primary key,
  name TEXT not null unique,

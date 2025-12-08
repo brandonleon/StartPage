@@ -264,7 +264,7 @@ UPDATE links SET rank = 1.0 WHERE name = 'Docs';
                 <tr>
                     <td>1.x</td>
                     <td>db_v1.sql</td>
-                    <td>Basic links, rank, config, metadata tables</td>
+                    <td>Basic links, rank, metadata tables</td>
                 </tr>
                 <tr>
                     <td>2.x</td>
@@ -332,7 +332,7 @@ sqlite3 data/links.db < sql_scripts/v1_to_v2.sql
 
 # Verify
 sqlite3 data/links.db "SELECT name FROM sqlite_master WHERE type='table';"
-# Should show: links, config, metadata, tags, tag_link_map</code></pre>
+# Should show: links, metadata, tags, tag_link_map</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Rolling Back a Migration</h3>
         <p>If you need to roll back:</p>
@@ -403,7 +403,7 @@ docker start startpage</code></pre>
         <h2 class="h3 mb-3">Configuration</h2>
 
         <h3 class="h5 mt-4 mb-2">Application Settings</h3>
-        <p>Settings are editable via the <a href="/settings">/settings</a> screen (also linked in the app's navbar) and stored in the <code>config</code> table:</p>
+        <p>Settings are editable via the <a href="/settings">/settings</a> screen (also linked in the app's navbar) and persisted to <code>config.toml</code> at the project root. Set <code>STARTPAGE_CONFIG_PATH</code> to point at a different writable TOML file if you want to store settings elsewhere.</p>
 
         <table class="table table-dark">
             <thead>
@@ -415,32 +415,32 @@ docker start startpage</code></pre>
             </thead>
             <tbody>
                 <tr>
-                    <td>batch</td>
+                    <td><code>frecency.batch_size</code></td>
                     <td>20</td>
                     <td>Number of links to load per page (pagination batch size)</td>
                 </tr>
                 <tr>
-                    <td>max_rank</td>
+                    <td><code>frecency.max_rank</code></td>
                     <td>1000</td>
                     <td>Total rank pool allowed before cleanup runs</td>
                 </tr>
                 <tr>
-                    <td>temp_links_enabled</td>
-                    <td>1</td>
-                    <td>Whether temporary links can be created (1=yes, 0=no)</td>
+                    <td><code>temp_links.enabled</code></td>
+                    <td>true</td>
+                    <td>Whether temporary links can be created</td>
                 </tr>
                 <tr>
-                    <td>temp_links_default_ttl_hours</td>
+                    <td><code>temp_links.default_ttl_hours</code></td>
                     <td>24</td>
                     <td>Duration applied when the "Default" preset is selected</td>
                 </tr>
                 <tr>
-                    <td>temp_links_max_custom_hours</td>
+                    <td><code>temp_links.max_custom_hours</code></td>
                     <td>720</td>
                     <td>Upper bound for the "Custom" preset (in hours, up to 30 days)</td>
                 </tr>
                 <tr>
-                    <td>temp_links_purge_interval_seconds</td>
+                    <td><code>temp_links.purge_interval_seconds</code></td>
                     <td>600</td>
                     <td>Background cleanup cadence (also runs on every read)</td>
                 </tr>
@@ -448,14 +448,17 @@ docker start startpage</code></pre>
         </table>
 
         <h3 class="h5 mt-4 mb-2">Modifying Settings</h3>
-        <p>Prefer the UI whenever possible. For automation/headless scripts update the rows directly:</p>
-        <pre class="bg-dark text-light p-3 rounded"><code># Change batch size to 50
-sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"
+        <p>Prefer the UI whenever possible. For automation/headless workflows, edit <code>config.toml</code> with your favorite editor or provision a file before booting the app:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># config.toml
+[frecency]
+batch_size = 50
+max_rank = 2000
 
-# Change the max rank pool
-sqlite3 data/links.db "INSERT INTO config (id, name, value)
-VALUES (lower(hex(randomblob(16))), 'max_rank', '2000')
-ON CONFLICT(name) DO UPDATE SET value = excluded.value;"</code></pre>
+[temp_links]
+enabled = true
+default_ttl_hours = 12
+max_custom_hours = 72
+purge_interval_seconds = 900</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Frecency Algorithm Parameters</h3>
         <p>The ranking formula is defined in <code>services/db_utils.py</code>:</p>
@@ -469,7 +472,7 @@ ON CONFLICT(name) DO UPDATE SET value = excluded.value;"</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Temporary Link Controls</h3>
         <p>Mark a link as temporary from the add/edit form to set an automatic expiration (24 hours by default). Temporary links are highlighted in the UI and removed automatically when they expire.</p>
-        <p>Use <a href="/settings">/settings</a> to toggle the feature, change the default duration, cap the custom duration, and adjust the cleanup interval. Updated values are written to the <code>config</code> table and apply immediately.</p>
+        <p>Use <a href="/settings">/settings</a> to toggle the feature, change the default duration, cap the custom duration, and adjust the cleanup interval. Updates are persisted to <code>config.toml</code> and apply immediately.</p>
     </section>
 
     <!-- Troubleshooting -->
@@ -517,7 +520,7 @@ ON CONFLICT(name) DO UPDATE SET value = excluded.value;"</code></pre>
             <h3 class="h6">Performance issues</h3>
             <p><strong>Solutions:</strong></p>
             <ul>
-                <li>Reduce batch size in config</li>
+                <li>Reduce batch size via <code>/settings</code> or <code>config.toml</code></li>
                 <li>Clean up old links with low ranks</li>
                 <li>Vacuum database: <code>sqlite3 data/links.db "VACUUM;"</code></li>
                 <li>Increase Docker workers (if using Docker)</li>
