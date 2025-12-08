@@ -61,7 +61,7 @@ Junction table for many-to-many relationship between links and tags.
 - `linkid` (VARCHAR): Foreign key to links.id
 - `tagid` (INTEGER): Foreign key to tags.id
 
-**Usage**: Tags allow organizing links into categories. Multiple tags can be assigned to a single link, and each tag can be applied to multiple links. Tags are automatically lowercased and deduplicated.
+**Usage**: Tags allow organizing links into categories. Multiple tags can be assigned to a single link, and each tag can be applied to multiple links. Tags are automatically lowercased, whitespace is replaced with hyphens, non-alphanumeric characters are removed, and duplicates are deduped.
 
 ### config
 Application configuration settings.

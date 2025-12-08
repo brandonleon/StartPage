@@ -30,7 +30,7 @@
                                autocomplete="off"
                                data-tag-input
                                data-tag-suggestions='{{ ((all_tags | default([])) | map(attribute="name") | list) | tojson | safe }}'>
-                        <div class="form-text">Separate multiple tags with commas. Tags are automatically lowercased.</div>
+                        <div class="form-text">Separate multiple tags with commas. Tags are lowercased, spaces become hyphens, and only letters, numbers, or hyphens are kept.</div>
                     </div>
                     {% if all_tags %}
                     <div class="mb-3">

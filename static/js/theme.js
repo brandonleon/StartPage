@@ -135,27 +135,48 @@ function initTagSuggestions() {
         if (!Array.isArray(suggestions) || suggestions.length === 0) {
             return;
         }
-        suggestions = suggestions.map((tag) => String(tag));
+        const normalizeTag = (value) => {
+            if (!value) {
+                return "";
+            }
+            return String(value)
+                .toLowerCase()
+                .replace(/\s+/g, "-")
+                .replace(/[^a-z0-9-]/g, "")
+                .replace(/-+/g, "-")
+                .replace(/^-+|-+$/g, "");
+        };
+        suggestions = suggestions
+            .map((tag) => normalizeTag(String(tag)))
+            .filter((tag, index, list) => tag && list.indexOf(tag) === index);
+        if (suggestions.length === 0) {
+            return;
+        }
         const container = document.createElement("div");
         container.className = "tag-suggestions";
         input.insertAdjacentElement("afterend", container);
 
         const getState = () => {
             const raw = input.value || "";
+            const trailingDelimiter = /,\s*$/.test(raw);
             const parts = raw.split(",");
+            if (trailingDelimiter && parts.length > 0) {
+                parts.pop();
+            }
             let activePart = "";
-            if (parts.length === 1) {
-                activePart = parts[0];
-                parts.length = 0;
-            } else if (parts.length > 1) {
+            if (!trailingDelimiter) {
                 activePart = parts.pop() ?? "";
             }
-            if (/,\s*$/.test(raw)) {
-                parts.push(activePart);
-                activePart = "";
-            }
             const committed = parts.map((part) => part.trim()).filter((part) => part.length > 0);
-            return { committed, active: activePart.trim() };
+            const normalizedCommitted = committed.map((part) => normalizeTag(part));
+            const normalizedActive = normalizeTag(activePart);
+            return {
+                committed,
+                normalizedCommitted,
+                active: activePart,
+                normalizedActive,
+                trailingDelimiter,
+            };
         };
 
         const hideSuggestions = () => {
@@ -164,36 +185,39 @@ function initTagSuggestions() {
         };
 
         const applySuggestion = (tag) => {
-            const { committed, active } = getState();
-            const tokens = committed.slice();
-            if (active) {
-                tokens.push(tag);
-            } else if (!tokens.some((value) => value.toLowerCase() === tag.toLowerCase())) {
-                tokens.push(tag);
-            } else {
+            const normalized = normalizeTag(tag);
+            if (!normalized) {
                 hideSuggestions();
                 return;
             }
-            input.value = tokens.join(", ");
+            const { normalizedCommitted } = getState();
+            const tokens = normalizedCommitted.slice();
+            if (!tokens.includes(normalized)) {
+                tokens.push(normalized);
+            }
+            const nextValue = `${tokens.join(", ")}, `;
+            input.value = nextValue;
             hideSuggestions();
             input.focus();
+            if (typeof input.setSelectionRange === "function") {
+                input.setSelectionRange(nextValue.length, nextValue.length);
+            }
             input.dispatchEvent(new Event("input"));
         };
 
         const updateSuggestions = () => {
-            const { committed, active } = getState();
-            const committedSet = new Set(committed.map((value) => value.toLowerCase()));
-            const query = active.toLowerCase();
+            const { normalizedCommitted, normalizedActive } = getState();
+            const committedSet = new Set(normalizedCommitted);
+            const query = normalizedActive;
             const matches = suggestions
                 .filter((tag) => {
-                    const normalized = tag.toLowerCase();
-                    if (committedSet.has(normalized)) {
+                    if (committedSet.has(tag)) {
                         return false;
                     }
                     if (!query) {
                         return true;
                     }
-                    return normalized.startsWith(query);
+                    return tag.startsWith(query);
                 })
                 .slice(0, 6);
             if (matches.length === 0) {

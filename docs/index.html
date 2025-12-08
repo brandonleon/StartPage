@@ -92,7 +92,7 @@
                     <h3 class="h5">Tag rename &amp; merge</h3>
                     <p class="text-muted">The <code>/tags</code> view now exposes an inline Rename control for every tag. Submitting the form posts to <code>/tag/:id/rename</code> and ultimately <code>db_utils.rename_tag</code>.</p>
                     <ul class="small">
-                        <li>Incoming names are lowercased and trimmed server-side.</li>
+                        <li>Incoming names are lowercased, whitespace becomes hyphens, non-alphanumeric characters are stripped, and values are trimmed server-side.</li>
                         <li>If the destination name already exists, the links are merged into that tag and the original row is removed.</li>
                         <li>Otherwise the row is renamed in place and counts are recalculated.</li>
                     </ul>

@@ -37,7 +37,7 @@
                     <label for="bulk-tag-input" class="form-label small text-muted mb-1">Add tags to selected</label>
                     <input type="text" class="form-control" id="bulk-tag-input" name="tag_names"
                            placeholder="e.g., follow-up, project-x" data-bulk-tags autocomplete="off">
-                    <div class="form-text">Separate multiple tags with commas. Tags are lowercased.</div>
+                    <div class="form-text">Separate multiple tags with commas. Tags are lowercased, spaces become hyphens, and only letters, numbers, or hyphens are kept.</div>
                 </div>
                 <div class="d-flex align-items-end">
                     <button class="btn btn-primary" type="submit" data-bulk-tag data-bulk-action="/dashboard/bulk-tag" data-bulk-requires-selection="true" data-bulk-requires-tags="true" disabled>Add tags</button>

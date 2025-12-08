@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
@@ -12,6 +13,23 @@ db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 DEFAULT_BATCH_SIZE = 20
 DEFAULT_MAX_RANK = 1000
+TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
+TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
+
+
+def normalize_tag(tag_name: str) -> str:
+    """
+    Canonicalize user-provided tag strings.
+
+    Lowercases text, converts whitespace to hyphens, removes everything that
+    isn't [a-z0-9-], and collapses redundant separators so persisted tags
+    contain only the allowed characters.
+    """
+    cleaned = tag_name.lower()
+    cleaned = TAG_WHITESPACE_PATTERN.sub("-", cleaned)
+    cleaned = TAG_INVALID_CHARS_PATTERN.sub("", cleaned)
+    cleaned = re.sub(r"-{2,}", "-", cleaned)
+    return cleaned.strip("-")
 
 
 # Get individual link
@@ -476,7 +494,7 @@ def add_tag_to_link(link_id: str, tag_name: str) -> bool:
     Returns:
         bool: True if tag was added successfully.
     """
-    tag_name = tag_name.strip().lower()
+    tag_name = normalize_tag(tag_name)
     if not tag_name:
         return False
 
@@ -584,7 +602,7 @@ def rename_tag(tag_id: str, new_name: str) -> bool:
     Returns:
         bool: True if the tag was updated or merged, False otherwise.
     """
-    new_name = new_name.strip().lower()
+    new_name = normalize_tag(new_name)
     if not new_name:
         return False
 
