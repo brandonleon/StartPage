@@ -46,6 +46,17 @@
         </ul>
     </section>
 
+    <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Frecency in plain English</h2>
+        <p>Every link gets a score that blends <em>frequency</em> (rank) and <em>recency</em> (how long since you last opened it). The exact formula is:</p>
+        <pre class="bg-dark text-light p-3 rounded mb-3"><code>score = 10000 * rank * (3.75 / ((0.0001 * (now - accessed) + 1) + 0.25))</code></pre>
+        <ul class="mb-0">
+            <li><strong>rank</strong> increases by 1 each time you click the link from StartPage.</li>
+            <li><strong>now - accessed</strong> grows as a link sits idle, reducing its score so stale entries drift down.</li>
+            <li>Links with a score below rank 1.0 become pruning candidates and are eventually removed.</li>
+        </ul>
+    </section>
+
     <section class="glass-panel">
         <h2 class="h5 mb-3">Stay organized with tags</h2>
         <div class="row g-4">

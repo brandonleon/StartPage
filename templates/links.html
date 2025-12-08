@@ -33,6 +33,12 @@
                     <div class="link-metadata text-md-end">
                         <span class="tag">Rank {{ "%.2f"|format(link.rank) }}</span>
                         <div class="small text-muted">Last used {{ link.accessed }}</div>
+                        {% if link.is_temporary %}
+                        <div class="temp-indicator mt-2">
+                            <span class="badge bg-warning text-dark">Temporary</span>
+                            <span>Expires in {{ link.expires_in }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

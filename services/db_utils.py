@@ -13,6 +13,10 @@ db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 DEFAULT_BATCH_SIZE = 20
 DEFAULT_MAX_RANK = 1000
+DEFAULT_TEMP_LINK_ENABLED = True
+DEFAULT_TEMP_LINK_TTL_HOURS = 24
+DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS = 24 * 30
+DEFAULT_TEMP_LINK_PURGE_INTERVAL_SECONDS = 600
 TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
 
@@ -32,6 +36,90 @@ def normalize_tag(tag_name: str) -> str:
     return cleaned.strip("-")
 
 
+def _ensure_expires_column() -> None:
+    """Ensure the links table includes the expires_at column and supporting index."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    try:
+        cur.execute("PRAGMA table_info(links);")
+        columns = {row[1] for row in cur.fetchall()}
+        if "expires_at" not in columns:
+            cur.execute("ALTER TABLE links ADD COLUMN expires_at INTEGER")
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_links_expires_at ON links(expires_at)"
+        )
+        con.commit()
+    finally:
+        con.close()
+
+
+def purge_expired_links(now: Optional[int] = None) -> int:
+    """
+    Delete links whose expires_at timestamp is in the past.
+
+    Returns:
+        int: The number of removed rows.
+    """
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    if now is None:
+        now = int(time())
+    cur.execute(
+        "DELETE FROM links WHERE expires_at IS NOT NULL AND expires_at <= :now",
+        {"now": now},
+    )
+    removed = cur.rowcount or 0
+    con.commit()
+    con.close()
+    return removed
+
+
+def format_expires_in(expires_at: Optional[int], now: Optional[int] = None) -> Optional[str]:
+    """Return a short description of how long remains until expiration."""
+    if expires_at is None:
+        return None
+    if now is None:
+        now = int(time())
+    seconds_remaining = expires_at - now
+    if seconds_remaining <= 0:
+        return "less than a minute"
+    units = (
+        ("day", 86400),
+        ("hour", 3600),
+        ("minute", 60),
+    )
+    for label, unit_seconds in units:
+        if seconds_remaining >= unit_seconds:
+            value = seconds_remaining // unit_seconds
+            suffix = "" if value == 1 else "s"
+            return f"{value} {label}{suffix}"
+    return "less than a minute"
+
+
+def _serialize_link_row(row: sqlite3.Row, now: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Convert a sqlite row into the dictionary structure consumed throughout the app.
+    """
+    if now is None:
+        now = int(time())
+    expires_at = row["expires_at"]
+    expires_in_seconds = None
+    if expires_at is not None:
+        expires_in_seconds = max(0, expires_at - now)
+    return dict(
+        id=row["id"],
+        url=row["url"],
+        name=row["name"],
+        rank=row["rank"],
+        accessed=timeago.format(row["accessed"]),
+        tags=get_tags_for_link(row["id"]),
+        expires_at=expires_at,
+        expires_in=format_expires_in(expires_at, now),
+        expires_in_seconds=expires_in_seconds,
+        is_temporary=expires_at is not None,
+    )
+
+
 # Get individual link
 def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
     """
@@ -43,11 +131,12 @@ def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
     Returns:
         Sqlite3.Row: Link.
     """
+    purge_expired_links()
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     cur.execute(
-        "SELECT id, name, url fROM links WHERE id = :link_id",
+        "SELECT id, name, url, expires_at fROM links WHERE id = :link_id",
         {"link_id": link_id},
     )
     link = cur.fetchone()
@@ -74,6 +163,7 @@ def get_links(page: int = 0, batch: Optional[int] = None) -> List[dict]:
     Returns:
         list: List of links with their tags.
     """
+    purge_expired_links()
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
 
@@ -82,29 +172,15 @@ def get_links(page: int = 0, batch: Optional[int] = None) -> List[dict]:
         batch = _get_batch_size(cur)
     offset = page * batch
     cur.execute(
-        "SELECT id, url, name, rank, accessed fROM links "
+        "SELECT id, url, name, rank, accessed, expires_at fROM links "
         "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC "
         "LIMIT :page, :batch;",
         {"page": offset, "batch": batch},
     )
     rows = cur.fetchall()
 
-    links = []
-    for row in rows:
-        link_id = row["id"]
-        # Get tags for this link
-        tags = get_tags_for_link(link_id)
-        links.append(
-            dict(
-                id=link_id,
-                url=row["url"],
-                name=row["name"],
-                rank=row["rank"],
-                accessed=timeago.format(row["accessed"]),
-                tags=tags,
-            )
-        )
-
+    now = int(time())
+    links = [_serialize_link_row(row, now) for row in rows]
     con.close()
     return links
 
@@ -136,11 +212,117 @@ def _get_max_rank(cur: sqlite3.Cursor) -> int:
         return DEFAULT_MAX_RANK
 
 
+def _parse_bool(value: Optional[str], default: bool) -> bool:
+    if value is None:
+        return default
+    return str(value).strip().lower() not in {"false", "0", "no", "off", ""}
+
+
+def _parse_int(value: Optional[str], default: int, minimum: int = 1, maximum: Optional[int] = None) -> int:
+    if value is None:
+        result = default
+    else:
+        try:
+            result = int(value)
+        except (TypeError, ValueError):
+            result = default
+    result = max(minimum, result)
+    if maximum is not None:
+        result = min(maximum, result)
+    return result
+
+
+def get_temp_link_config() -> Dict[str, int | bool]:
+    """Return persisted settings related to temporary link behavior."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    cur.execute(
+        "SELECT name, value FROM config WHERE name IN ("
+        "'temp_links_enabled', "
+        "'temp_links_default_ttl_hours', "
+        "'temp_links_max_custom_hours', "
+        "'temp_links_purge_interval_seconds'"
+        ")"
+    )
+    rows = {name: value for name, value in cur.fetchall()}
+    con.close()
+    enabled = _parse_bool(rows.get("temp_links_enabled"), DEFAULT_TEMP_LINK_ENABLED)
+    default_hours = _parse_int(
+        rows.get("temp_links_default_ttl_hours"),
+        DEFAULT_TEMP_LINK_TTL_HOURS,
+        1,
+        DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS,
+    )
+    max_hours = _parse_int(
+        rows.get("temp_links_max_custom_hours"),
+        DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS,
+        default_hours,
+        DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS,
+    )
+    purge_interval_seconds = _parse_int(
+        rows.get("temp_links_purge_interval_seconds"),
+        DEFAULT_TEMP_LINK_PURGE_INTERVAL_SECONDS,
+        60,
+    )
+    return {
+        "enabled": enabled,
+        "default_ttl_hours": default_hours,
+        "max_custom_hours": max_hours,
+        "purge_interval_seconds": purge_interval_seconds,
+    }
+
+
+def update_temp_link_config(
+    enabled: bool,
+    default_ttl_hours: int,
+    max_custom_hours: int,
+    purge_interval_seconds: int,
+) -> Dict[str, int | bool]:
+    """Persist validated temporary-link settings and return the stored values."""
+    default_ttl_hours = max(1, default_ttl_hours)
+    max_custom_hours = max(default_ttl_hours, max_custom_hours)
+    max_custom_hours = min(DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS, max_custom_hours)
+    default_ttl_hours = min(max_custom_hours, default_ttl_hours)
+    purge_interval_seconds = max(60, purge_interval_seconds)
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    _upsert_config_value(cur, "temp_links_enabled", "1" if enabled else "0")
+    _upsert_config_value(
+        cur,
+        "temp_links_default_ttl_hours",
+        str(min(max_custom_hours, default_ttl_hours)),
+    )
+    _upsert_config_value(
+        cur,
+        "temp_links_max_custom_hours",
+        str(max_custom_hours),
+    )
+    _upsert_config_value(
+        cur,
+        "temp_links_purge_interval_seconds",
+        str(purge_interval_seconds),
+    )
+    con.commit()
+    con.close()
+    return {
+        "enabled": enabled,
+        "default_ttl_hours": min(max_custom_hours, default_ttl_hours),
+        "max_custom_hours": max_custom_hours,
+        "purge_interval_seconds": purge_interval_seconds,
+    }
+
+
 def _ensure_config_defaults() -> None:
     """Ensure new config rows exist for deployments created before this release."""
     defaults = {
         "batch": str(DEFAULT_BATCH_SIZE),
         "max_rank": str(DEFAULT_MAX_RANK),
+        "temp_links_enabled": "1" if DEFAULT_TEMP_LINK_ENABLED else "0",
+        "temp_links_default_ttl_hours": str(DEFAULT_TEMP_LINK_TTL_HOURS),
+        "temp_links_max_custom_hours": str(DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS),
+        "temp_links_purge_interval_seconds": str(
+            DEFAULT_TEMP_LINK_PURGE_INTERVAL_SECONDS
+        ),
     }
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -159,6 +341,7 @@ def get_count() -> Dict[str, int]:
 
     The page count is derived from the configured batch size.
     """
+    purge_expired_links()
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     cur.execute("SELECT COUNT(*) FROM links;")
@@ -221,10 +404,16 @@ def init_db(cur_version: str) -> None:
             con.commit()
     con.close()
     _ensure_config_defaults()
+    _ensure_expires_column()
 
 
 # add link to database
-def save_link(name: str, url: str, link_id: Optional[str] = None) -> str:
+def save_link(
+    name: str,
+    url: str,
+    link_id: Optional[str] = None,
+    expires_at: Optional[int] = None,
+) -> str:
     """
     Save link to database, or update existing link with a new name or url.
 
@@ -235,6 +424,7 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> str:
         name (str): Link name.
         url (str): Link url.
         link_id (Optional[str]): Link id.
+        expires_at (Optional[int]): Expiration timestamp, or None for permanent links.
 
     Returns:
         str: The link id (generated if new, or the provided id if updating).
@@ -249,24 +439,26 @@ def save_link(name: str, url: str, link_id: Optional[str] = None) -> str:
         new_id = str(uuid4())
         with con as cur:
             cur.execute(
-                "INSERT INTO links (id, url, name, rank, accessed) VALUES (:id, :url, :name, :rank, :accessed)",
+                "INSERT INTO links (id, url, name, rank, accessed, expires_at) VALUES (:id, :url, :name, :rank, :accessed, :expires_at)",
                 {
                     "id": new_id,
                     "url": url,
                     "name": name,
                     "rank": rank,
                     "accessed": int(time()),
+                    "expires_at": expires_at,
                 },
             )
             return new_id
     else:
         with con as cur:
             cur.execute(
-                "UPDATE links SET name = :name, url = :url WHERE id = :id",
+                "UPDATE links SET name = :name, url = :url, expires_at = :expires_at WHERE id = :id",
                 {
                     "id": link_id,
                     "name": name,
                     "url": url,
+                    "expires_at": expires_at,
                 },
             )
             return link_id
@@ -397,7 +589,7 @@ def get_app_metadata() -> Dict[str, str]:
 
 
 # Search for links in the database.
-def search_links(query: str) -> List[Dict[str, str]]:
+def search_links(query: str) -> List[Dict[str, Any]]:
     """
     Search for links in the database.
 
@@ -407,12 +599,13 @@ def search_links(query: str) -> List[Dict[str, str]]:
     Returns:
         List[Dict[str, str]]: Links with their tags.
     """
+    purge_expired_links()
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
 
     cur = con.cursor()
     cur.execute(
-        "SELECT id, name, url, rank, accessed "
+        "SELECT id, name, url, rank, accessed, expires_at "
         "FROM links "
         "WHERE name LIKE :query OR url LIKE :query "
         "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC",
@@ -421,21 +614,8 @@ def search_links(query: str) -> List[Dict[str, str]]:
     rows = cur.fetchall()
     con.close()
 
-    links = []
-    for row in rows:
-        link_id = row["id"]
-        tags = get_tags_for_link(link_id)
-        links.append(
-            {
-                "id": link_id,
-                "name": row["name"],
-                "url": row["url"],
-                "rank": row["rank"],
-                "accessed": timeago.format(row["accessed"]),
-                "tags": tags,
-            }
-        )
-    return links
+    now = int(time())
+    return [_serialize_link_row(row, now) for row in rows]
 
 
 # Tag management functions
@@ -663,6 +843,7 @@ def get_links_by_tag(tag_name: str, page: int = 0, batch: Optional[int] = None) 
     Returns:
         list: List of links with the specified tag, including all their tags.
     """
+    purge_expired_links()
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
@@ -671,7 +852,7 @@ def get_links_by_tag(tag_name: str, page: int = 0, batch: Optional[int] = None) 
     offset = page * batch
 
     cur.execute(
-        "SELECT l.id, l.url, l.name, l.rank, l.accessed "
+        "SELECT l.id, l.url, l.name, l.rank, l.accessed, l.expires_at "
         "FROM links l "
         "INNER JOIN tag_link_map tlm ON l.id = tlm.link_id "
         "INNER JOIN tags t ON tlm.tag_id = t.id "
@@ -683,22 +864,8 @@ def get_links_by_tag(tag_name: str, page: int = 0, batch: Optional[int] = None) 
     rows = cur.fetchall()
     con.close()
 
-    links = []
-    for row in rows:
-        link_id = row["id"]
-        tags = get_tags_for_link(link_id)
-        links.append(
-            dict(
-                id=link_id,
-                url=row["url"],
-                name=row["name"],
-                rank=row["rank"],
-                accessed=timeago.format(row["accessed"]),
-                tags=tags,
-            )
-        )
-
-    return links
+    now = int(time())
+    return [_serialize_link_row(row, now) for row in rows]
 
 
 # Get database statistics.

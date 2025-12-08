@@ -1,5 +1,9 @@
+import asyncio
+import contextlib
 import sqlite3
-from typing import List
+from math import ceil
+from time import time
+from typing import Dict, List, Optional
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Form, Request
@@ -9,11 +13,16 @@ from packaging.version import parse
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-import services.app_config as ap
 import services.db_utils as db_utils
 
 # Initialize the database, with the current app version.
 db_utils.init_db("2")
+temp_link_settings = db_utils.get_temp_link_config()
+
+
+def _refresh_temp_link_settings() -> None:
+    global temp_link_settings
+    temp_link_settings = db_utils.get_temp_link_config()
 
 config = {}  # Global config dictionary, str: object, or str: str.
 # app_config = ap.AppConfig("1.0.0", db)
@@ -44,10 +53,98 @@ SEARCH_PARTIALS = {
     "dashboard": "dashboard_items.html",
 }
 
+
+TEMP_LINK_PRESETS: Dict[str, Optional[int]] = {
+    "default": None,
+    "24h": 24 * 60 * 60,
+    "7d": 7 * 24 * 60 * 60,
+}
+
+
+def _temp_link_preset_options() -> List[Dict[str, str]]:
+    return [
+        {
+            "value": "default",
+            "label": f"Default ({temp_link_settings['default_ttl_hours']} hours)",
+        },
+        {"value": "24h", "label": "24 hours"},
+        {"value": "7d", "label": "7 days"},
+        {"value": "custom", "label": "Custom"},
+    ]
+
+
+def _hours_remaining(expires_at: Optional[int]) -> Optional[int]:
+    if not expires_at:
+        return None
+    seconds = max(0, expires_at - int(time()))
+    return max(1, ceil(seconds / 3600))
+
+
+def _custom_duration_seconds(raw_hours: Optional[str], max_hours: int) -> Optional[int]:
+    if raw_hours is None:
+        return None
+    try:
+        hours = float(raw_hours)
+    except (TypeError, ValueError):
+        return None
+    if hours <= 0:
+        return None
+    hours = min(max(hours, 1.0), float(max_hours))
+    return int(ceil(hours * 3600))
+
+
+def _resolve_expiration(
+    temporary_flag: Optional[str],
+    preset: Optional[str],
+    custom_hours: Optional[str],
+) -> Optional[int]:
+    if not temp_link_settings["enabled"] or not temporary_flag:
+        return None
+    preset_key = (preset or "default").lower()
+    if preset_key == "default":
+        ttl_seconds = temp_link_settings["default_ttl_hours"] * 3600
+    elif preset_key in {"24h", "7d"}:
+        ttl_seconds = TEMP_LINK_PRESETS[preset_key]
+    elif preset_key == "custom":
+        ttl_seconds = _custom_duration_seconds(
+            custom_hours, temp_link_settings["max_custom_hours"]
+        ) or (temp_link_settings["default_ttl_hours"] * 3600)
+    else:
+        ttl_seconds = temp_link_settings["default_ttl_hours"] * 3600
+    return int(time()) + ttl_seconds
+
+
+def _build_temp_link_form(
+    enabled: bool = False,
+    preset: Optional[str] = None,
+    custom_hours: Optional[int] = None,
+    default_hours: Optional[int] = None,
+) -> Dict[str, Optional[int]]:
+    default_hours = default_hours or temp_link_settings["default_ttl_hours"]
+    preset_key = (preset or "default").lower()
+    if preset_key not in {"default", "24h", "7d", "custom"}:
+        preset_key = "default"
+    effective_enabled = enabled and temp_link_settings["enabled"]
+    show_custom = effective_enabled and preset_key == "custom"
+    if preset_key == "custom" and custom_hours is None:
+        custom_hours = default_hours
+    return {
+        "enabled": effective_enabled,
+        "preset": preset_key,
+        "custom_hours": custom_hours if show_custom else None,
+        "show_custom": show_custom,
+    }
+
 def template_context(**extra):
     ctx = {
         "version": str(config["app_version"]),
         "name": config["app_name"],
+        "temp_links_enabled": temp_link_settings["enabled"],
+        "temp_link_default_hours": temp_link_settings["default_ttl_hours"],
+        "temp_link_max_custom_hours": temp_link_settings["max_custom_hours"],
+        "temp_link_presets": _temp_link_preset_options(),
+        "temp_link_purge_interval_minutes": temp_link_settings["purge_interval_seconds"]
+        // 60,
     }
     ctx.update(extra)
     return ctx
@@ -170,6 +267,10 @@ async def add_display(request: Request):
             request=request,
             title=f"{config['app_name']} · Add Link",
             all_tags=all_tags,
+            temp_link_form=_build_temp_link_form(
+                preset="default",
+                default_hours=temp_link_settings["default_ttl_hours"],
+            ),
         ),
     )
 
@@ -180,9 +281,15 @@ async def add_link(
     link_name: str = Form(...),
     link_url: str = Form(...),
     tag_names: str = Form(""),
+    is_temporary: Optional[str] = Form(None),
+    temporary_preset: str = Form("24h"),
+    temporary_custom_hours: Optional[str] = Form(None),
 ):
     # Save the link and get the link_id
-    link_id = db_utils.save_link(link_name, link_url)
+    expires_at = _resolve_expiration(
+        is_temporary, temporary_preset, temporary_custom_hours
+    )
+    link_id = db_utils.save_link(link_name, link_url, expires_at=expires_at)
 
     # Process tags if provided
     if tag_names.strip():
@@ -208,6 +315,15 @@ async def edit(request: Request, link_id):
     link = db_utils.get_link(link_id, False)
     tags = db_utils.get_tags_for_link(link_id)
     all_tags = db_utils.get_all_tags()
+    expires_at = link["expires_at"] if link else None
+    expires_hours = _hours_remaining(expires_at)
+    preset = "custom" if expires_at else "default"
+    temp_link_form = _build_temp_link_form(
+        enabled=bool(expires_at),
+        preset=preset,
+        custom_hours=expires_hours,
+    )
+    temp_link_summary = db_utils.format_expires_in(expires_at) if expires_at else None
     return templates.TemplateResponse(
         "edit.html",
         template_context(
@@ -216,14 +332,26 @@ async def edit(request: Request, link_id):
             tags=tags,
             all_tags=all_tags,
             title=f"{config['app_name']} · Edit Link",
+            temp_link_form=temp_link_form,
+            temp_link_summary=temp_link_summary,
         ),
     )
 
 
 # process the edit link form
 @app.post("/edit/{link_id}", response_class=HTMLResponse)
-async def edit_link(link_id, link_name: str = Form(...), link_url: str = Form(...)):
-    db_utils.save_link(link_name, link_url, link_id)
+async def edit_link(
+    link_id,
+    link_name: str = Form(...),
+    link_url: str = Form(...),
+    is_temporary: Optional[str] = Form(None),
+    temporary_preset: str = Form("24h"),
+    temporary_custom_hours: Optional[str] = Form(None),
+):
+    expires_at = _resolve_expiration(
+        is_temporary, temporary_preset, temporary_custom_hours
+    )
+    db_utils.save_link(link_name, link_url, link_id, expires_at)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
 
@@ -285,9 +413,19 @@ async def stats_page(request: Request):
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
+    _refresh_temp_link_settings()
     frecency = db_utils.get_frecency_config()
     counts = db_utils.get_count()
     saved = request.query_params.get("saved") == "1"
+    temp_config = temp_link_settings
+    form_values = {
+        "batch_size": frecency["batch_size"],
+        "max_rank": frecency["max_rank"],
+        "temp_links_enabled": temp_config["enabled"],
+        "temp_link_default_ttl_hours": temp_config["default_ttl_hours"],
+        "temp_link_max_custom_hours": temp_config["max_custom_hours"],
+        "temp_link_purge_interval_minutes": temp_config["purge_interval_seconds"] // 60,
+    }
     return templates.TemplateResponse(
         "settings.html",
         template_context(
@@ -295,7 +433,7 @@ async def settings_page(request: Request):
             title=f"{config['app_name']} · Settings",
             frecency=frecency,
             counts=counts,
-            form_values=frecency,
+            form_values=form_values,
             errors={},
             saved=saved,
         ),
@@ -307,16 +445,34 @@ async def update_settings(
     request: Request,
     batch_size: int = Form(...),
     max_rank: int = Form(...),
+    temp_links_enabled: Optional[str] = Form(None),
+    temp_link_default_ttl_hours: int = Form(...),
+    temp_link_max_custom_hours: int = Form(...),
+    temp_link_purge_interval_minutes: int = Form(...),
 ):
     errors = {}
     if batch_size < 5 or batch_size > 200:
         errors["batch_size"] = "Choose a batch size between 5 and 200."
     if max_rank < 100 or max_rank > 50000:
         errors["max_rank"] = "Choose a max rank between 100 and 50000."
+    if temp_link_default_ttl_hours < 1 or temp_link_default_ttl_hours > 720:
+        errors["temp_link_default_ttl_hours"] = "Pick a default duration between 1 and 720 hours."
+    if temp_link_max_custom_hours < temp_link_default_ttl_hours or temp_link_max_custom_hours > 720:
+        errors["temp_link_max_custom_hours"] = "Max custom duration must be at least the default and no more than 720 hours."
+    if temp_link_purge_interval_minutes < 1 or temp_link_purge_interval_minutes > 1440:
+        errors["temp_link_purge_interval_minutes"] = "Cleanup interval must be between 1 minute and 24 hours."
 
     if errors:
         counts = db_utils.get_count()
         frecency = db_utils.get_frecency_config()
+        form_values = {
+            "batch_size": batch_size,
+            "max_rank": max_rank,
+            "temp_links_enabled": temp_links_enabled is not None,
+            "temp_link_default_ttl_hours": temp_link_default_ttl_hours,
+            "temp_link_max_custom_hours": temp_link_max_custom_hours,
+            "temp_link_purge_interval_minutes": temp_link_purge_interval_minutes,
+        }
         return templates.TemplateResponse(
             "settings.html",
             template_context(
@@ -324,7 +480,7 @@ async def update_settings(
                 title=f"{config['app_name']} · Settings",
                 frecency=frecency,
                 counts=counts,
-                form_values={"batch_size": batch_size, "max_rank": max_rank},
+                form_values=form_values,
                 errors=errors,
                 saved=False,
             ),
@@ -332,6 +488,13 @@ async def update_settings(
         )
 
     db_utils.update_frecency_config(batch_size, max_rank)
+    db_utils.update_temp_link_config(
+        temp_links_enabled is not None,
+        temp_link_default_ttl_hours,
+        temp_link_max_custom_hours,
+        temp_link_purge_interval_minutes * 60,
+    )
+    _refresh_temp_link_settings()
     return RedirectResponse(app.url_path_for("settings_page") + "?saved=1", status_code=303)
 
 
@@ -418,6 +581,27 @@ async def tag_links_page(request: Request, tag_name: str, page: int):
             batch_size=frecency["batch_size"],
         ),
     )
+
+
+async def _temp_link_cleanup_loop() -> None:
+    while True:
+        db_utils.purge_expired_links()
+        await asyncio.sleep(temp_link_settings["purge_interval_seconds"])
+
+
+@app.on_event("startup")
+async def _start_temp_link_cleanup() -> None:
+    db_utils.purge_expired_links()
+    app.state.temp_link_cleanup = asyncio.create_task(_temp_link_cleanup_loop())
+
+
+@app.on_event("shutdown")
+async def _stop_temp_link_cleanup() -> None:
+    cleanup_task = getattr(app.state, "temp_link_cleanup", None)
+    if cleanup_task:
+        cleanup_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await cleanup_task
 
 
 # start the server

@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS links
  name TEXT not null unique,
  url TEXT not null unique,
  rank FLOAT,
- accessed integer
+ accessed integer,
+ expires_at integer
 );
 
 CREATE TABLE IF NOT EXISTS config
@@ -36,3 +37,5 @@ CREATE TABLE IF NOT EXISTS tag_link_map
  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
  FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_links_expires_at ON links(expires_at);

@@ -313,16 +313,49 @@ function initTagRenameControls() {
     });
 }
 
+function initTemporaryLinkControls() {
+    document.querySelectorAll("[data-temp-link-section]").forEach((section) => {
+        if (section.dataset.tempBound === "true") {
+            return;
+        }
+        section.dataset.tempBound = "true";
+        const toggle = section.querySelector("[data-temp-toggle]");
+        const preset = section.querySelector("[data-temp-preset]");
+        const customContainer = section.querySelector("[data-temp-custom]");
+        const customInput = section.querySelector("[data-temp-custom-input]");
+
+        const updateState = () => {
+            const enabled = Boolean(toggle?.checked);
+            if (preset) {
+                preset.disabled = !enabled;
+            }
+            const shouldShowCustom = enabled && preset && preset.value === "custom";
+            if (customContainer) {
+                customContainer.hidden = !shouldShowCustom;
+            }
+            if (customInput) {
+                customInput.disabled = !shouldShowCustom;
+            }
+        };
+
+        toggle?.addEventListener("change", updateState);
+        preset?.addEventListener("change", updateState);
+        updateState();
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSearchClear();
     initBulkSelection();
     initTagSuggestions();
     initTagRenameControls();
+    initTemporaryLinkControls();
 });
 
 document.body.addEventListener("htmx:afterSwap", () => {
     initBulkSelection();
     initTagSuggestions();
     initTagRenameControls();
+    initTemporaryLinkControls();
 });

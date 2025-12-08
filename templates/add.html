@@ -42,6 +42,51 @@
                         </div>
                     </div>
                     {% endif %}
+                    {% if temp_links_enabled %}
+                    <div class="mb-4" data-temp-link-section>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="is_temporary"
+                                   name="is_temporary"
+                                   value="1"
+                                   data-temp-toggle
+                                   {% if temp_link_form.enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="is_temporary">Make this a temporary link</label>
+                        </div>
+                        <div class="form-text">Temporary links default to {{ temp_link_default_hours }} hours and are automatically deleted when the timer expires.</div>
+                        <div class="mt-3">
+                            <label for="temporary_preset" class="form-label small text-muted mb-1">Duration</label>
+                            <select class="form-select"
+                                    id="temporary_preset"
+                                    name="temporary_preset"
+                                    data-temp-preset
+                                    {% if not temp_link_form.enabled %}disabled{% endif %}>
+                                {% for option in temp_link_presets %}
+                                <option value="{{ option.value }}"
+                                        {% if temp_link_form.preset == option.value %}selected{% endif %}>
+                                    {{ option.label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="mt-2"
+                                 data-temp-custom
+                                 {% if not temp_link_form.show_custom %}hidden{% endif %}>
+                                <label for="temporary_custom_hours" class="form-label small text-muted mb-1">Custom duration (hours)</label>
+                                <input type="number"
+                                       class="form-control"
+                                       id="temporary_custom_hours"
+                                       name="temporary_custom_hours"
+                                       min="1"
+                                       max="{{ temp_link_max_custom_hours }}"
+                                       data-temp-custom-input
+                                       {% if not temp_link_form.show_custom %}disabled{% endif %}
+                                       value="{{ temp_link_form.custom_hours or '' }}">
+                                <div class="form-text">Choose between 1 and {{ temp_link_max_custom_hours }} hours.</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="callout mb-4">
                         <h5 class="mb-2">How this works</h5>
                         <p class="mb-0 text-muted">Each save assigns a balanced rank so new links appear near the top and gradually find their place as you use them.</p>

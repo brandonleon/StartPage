@@ -479,6 +479,18 @@ p {
     color: var(--ctp-text);
 }
 
+.temp-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--ctp-warning-strong);
+}
+
+.temp-indicator .badge {
+    line-height: 1.2;
+}
+
 .text-muted {
     color: var(--ctp-subtle) !important;
 }

@@ -1,4 +1,6 @@
 import sqlite3
+from time import time
+from uuid import uuid4
 
 import services.db_utils as db_utils
 
@@ -27,3 +29,53 @@ def test_get_frecency_config():
     assert config["batch_size"] > 0
     assert isinstance(config["max_rank"], int)
     assert config["max_rank"] >= 100
+
+
+def test_purge_expired_links_removes_only_expired_rows():
+    now = int(time())
+    expired_name = f"Expired-{uuid4()}"
+    future_name = f"Future-{uuid4()}"
+    expired_id = db_utils.save_link(
+        expired_name,
+        f"https://example.com/{uuid4()}",
+        expires_at=now - 10,
+    )
+    future_id = db_utils.save_link(
+        future_name,
+        f"https://example.com/{uuid4()}",
+        expires_at=now + 3600,
+    )
+
+    removed = db_utils.purge_expired_links(now)
+    assert removed >= 1
+
+    con = sqlite3.connect(db_utils.db_path)
+    cur = con.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM links WHERE id = ?", (expired_id,))
+    assert cur.fetchone()[0] == 0
+    cur.execute("SELECT COUNT(*) FROM links WHERE id = ?", (future_id,))
+    assert cur.fetchone()[0] == 1
+
+    con.close()
+    db_utils.delete_link(future_id)
+
+
+def test_temp_link_config_round_trip():
+    original = db_utils.get_temp_link_config()
+    updated = db_utils.update_temp_link_config(
+        True,
+        12,
+        48,
+        900,
+    )
+    assert updated["enabled"] is True
+    assert updated["default_ttl_hours"] == 12
+    assert updated["max_custom_hours"] == 48
+    assert updated["purge_interval_seconds"] == 900
+    db_utils.update_temp_link_config(
+        original["enabled"],
+        original["default_ttl_hours"],
+        original["max_custom_hours"],
+        original["purge_interval_seconds"],
+    )

@@ -67,6 +67,7 @@
             <li><strong>Frecency-based ranking</strong> - Links automatically prioritize based on usage patterns</li>
             <li><strong>Tag system</strong> - Organize links with custom tags (personal, work, projects, etc.)</li>
             <li><strong>Automatic pruning</strong> - Links with rank below 1 are automatically removed</li>
+            <li><strong>Temporary links</strong> - Flag short-lived bookmarks that expire automatically (default 24 hours)</li>
             <li><strong>SQLite storage</strong> - No external database required</li>
             <li><strong>FastAPI backend</strong> - High performance Python web framework</li>
             <li><strong>HTMX frontend</strong> - Dynamic updates without page reloads</li>
@@ -423,6 +424,26 @@ docker start startpage</code></pre>
                     <td>1000</td>
                     <td>Total rank pool allowed before cleanup runs</td>
                 </tr>
+                <tr>
+                    <td>temp_links_enabled</td>
+                    <td>1</td>
+                    <td>Whether temporary links can be created (1=yes, 0=no)</td>
+                </tr>
+                <tr>
+                    <td>temp_links_default_ttl_hours</td>
+                    <td>24</td>
+                    <td>Duration applied when the "Default" preset is selected</td>
+                </tr>
+                <tr>
+                    <td>temp_links_max_custom_hours</td>
+                    <td>720</td>
+                    <td>Upper bound for the "Custom" preset (in hours, up to 30 days)</td>
+                </tr>
+                <tr>
+                    <td>temp_links_purge_interval_seconds</td>
+                    <td>600</td>
+                    <td>Background cleanup cadence (also runs on every read)</td>
+                </tr>
             </tbody>
         </table>
 
@@ -445,6 +466,10 @@ ON CONFLICT(name) DO UPDATE SET value = excluded.value;"</code></pre>
             <li>Links with rank < 1 are automatically deleted when total ranks exceed <code>max_rank</code></li>
             <li>Remaining ranks are reduced by 1% during cleanup</li>
         </ul>
+
+        <h3 class="h5 mt-4 mb-2">Temporary Link Controls</h3>
+        <p>Mark a link as temporary from the add/edit form to set an automatic expiration (24 hours by default). Temporary links are highlighted in the UI and removed automatically when they expire.</p>
+        <p>Use <a href="/settings">/settings</a> to toggle the feature, change the default duration, cap the custom duration, and adjust the cleanup interval. Updated values are written to the <code>config</code> table and apply immediately.</p>
     </section>
 
     <!-- Troubleshooting -->

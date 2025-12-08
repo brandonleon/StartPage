@@ -15,6 +15,7 @@ erDiagram
         text url
         float rank
         accessed datetime
+        expires_at datetime
     }
 
     config {
@@ -48,6 +49,7 @@ Stores all bookmarked links with frecency-based ranking.
 - `url` (TEXT): Unique URL
 - `rank` (FLOAT): Frecency score (incremented on each access)
 - `accessed` (INTEGER): Unix timestamp of last access
+- `expires_at` (INTEGER, nullable): Unix timestamp when the link should be automatically deleted
 
 ### tags
 Stores unique tag names.
@@ -73,6 +75,10 @@ Current keys:
 
 - `batch`: Links per page batch size shown on dashboards and the home feed
 - `max_rank`: Maximum rank pool allowed before the pruning job runs
+- `temp_links_enabled`: Whether temporary link inputs/cleanup are active
+- `temp_links_default_ttl_hours`: Default duration (hours) applied when users choose the "Default" preset
+- `temp_links_max_custom_hours`: Maximum hours permitted for custom durations (capped at 30 days)
+- `temp_links_purge_interval_seconds`: Background cleanup cadence for purging expired links
 
 ### metadata
 Schema version tracking for migrations.
@@ -82,7 +88,7 @@ Schema version tracking for migrations.
 
 ## Schema Versioning
 
-Current version: **v1**
+Current version: **v2**
 
 Schema migrations are managed through:
 - `sql_scripts/db_v1.sql` - Full schema definition

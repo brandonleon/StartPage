@@ -4,6 +4,7 @@ StartPage is a self-hosted, frecency-based link manager designed to serve as you
 
 - **Frecency-based ranking** - Links are automatically ordered by a combination of access frequency and recency
 - **Tag organization** - Add tags to links for better categorization and filtering
+- **Temporary links** - Mark short-lived URLs that automatically expire after the selected duration
 - **Dark/light theme** - Toggle between mocha (dark) and latte (light) themes
 - **Search functionality** - Real-time search with HTMX-powered dynamic loading
 - **Dashboard monitoring** - View link health and manage low-rank items before automatic cleanup
@@ -67,6 +68,13 @@ The algorithm ensures that:
 - Enter a name and URL
 - Optionally add comma-separated tags (e.g., `work, documentation, python`)
 - Links are assigned the average rank on creation to naturally find their position
+
+### Temporary Links
+- Enable the **Temporary link** toggle on the add/edit form to store promo codes, onboarding docs, or staging URLs that should disappear automatically.
+- Choose a preset (Default, 24 hours, 7 days) or enter a custom duration in hours; admins decide what "Default" means in Settings.
+- Temporary links are highlighted on the home view and dashboard with a badge that shows how long remains before cleanup.
+- Expired links are removed from the database during reads and via a background cleanup loop, so stale entries never appear in responses.
+- Tune the feature under `/settings`: toggle temporary links on/off, change the default duration, set a maximum custom duration, and adjust the cleanup cadence. Values are stored in the SQLite `config` table so they take effect immediately without editing environment variables.
 
 ### Managing Tags
 - **Add tags**: Include them when creating/editing links in the tag field
