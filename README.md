@@ -89,6 +89,12 @@ The algorithm ensures that:
 - View `/dashboard` to see links grouped by health status
 - Check `/stats` for database statistics
 
+### Import & Export
+- Use the **Need an offline backup?** callout on `/dashboard` to download CSV or JSON exports. Large libraries stream directly from SQLite, so leave the tab open until the browser finishes downloading.
+- The same card exposes an **Import links** form—upload a CSV/JSON file that follows the export schema (`id,name,url,rank,accessed,tags`). Provide an `id` to update an existing link or leave it blank to create a new entry; tags are rewritten to match the uploaded list.
+- Direct endpoints exist for automation: `GET /exports/csv` or `/exports/json` return attachments, and `POST /imports` accepts `multipart/form-data` with `format=csv|json` plus the uploaded file.
+- For headless deployments, run `uv run python -m services.io_utils csv -o backups/startpage-links.csv` (swap `csv` for `json`) to export locally, then `curl -F format=json -F upload=@startpage-links.json http://your-host/imports` to import without touching the UI.
+
 ### Frecency Settings
 - Visit `/settings` (or the navbar link) to adjust the links-per-page batch size and the max rank pool used during pruning
 - Settings are validated server-side and apply immediately; refresh open tabs to pick up changes
