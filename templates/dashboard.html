@@ -35,8 +35,15 @@
             <div class="d-flex flex-column flex-lg-row gap-3">
                 <div class="flex-grow-1">
                     <label for="bulk-tag-input" class="form-label small text-muted mb-1">Add tags to selected</label>
-                    <input type="text" class="form-control" id="bulk-tag-input" name="tag_names"
-                           placeholder="e.g., follow-up, project-x" data-bulk-tags autocomplete="off">
+                    <input type="text"
+                           class="form-control"
+                           id="bulk-tag-input"
+                           name="tag_names"
+                           placeholder="e.g., follow-up, project-x"
+                           data-bulk-tags
+                           data-tag-input
+                           data-tag-suggestions='{{ ((all_tags | default([])) | map(attribute="name") | list) | tojson | safe }}'
+                           autocomplete="off">
                     <div class="form-text">Separate multiple tags with commas. Tags are lowercased, spaces become hyphens, and only letters, numbers, or hyphens are kept.</div>
                 </div>
                 <div class="d-flex align-items-end">
