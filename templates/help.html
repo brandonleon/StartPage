@@ -57,6 +57,15 @@
         </ul>
     </section>
 
+    <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Import &amp; export</h2>
+        <ul class="mb-0">
+            <li><strong>Export anytime:</strong> The dashboard banner links to <code>/exports/csv</code> and <code>/exports/json</code>. CSV files include <code>id,name,url,rank,accessed,tags</code> (semicolon-separated tags) and JSON returns an array with the same fields.</li>
+            <li><strong>Import in bulk:</strong> Use the “Import links” form on <code>/dashboard</code> (or POST to <code>/imports</code>) with a matching CSV or JSON payload. Provide an <code>id</code> to update an existing link; leave it blank to create a new one.</li>
+            <li><strong>CLI workflows:</strong> Headless installs can run <code>uv run python -m services.io_utils csv -o backups/startpage-links.csv</code> to export, then <code>curl -F format=json -F upload=@links.json http://your-host/imports</code> (or csv) to re-import without touching the UI.</li>
+        </ul>
+    </section>
+
     <section class="glass-panel">
         <h2 class="h5 mb-3">Stay organized with tags</h2>
         <div class="row g-4">

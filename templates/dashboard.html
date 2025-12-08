@@ -18,6 +18,38 @@
             <span class="stat-pill">Batch size: {{ frecency.batch_size }}</span>
             <span class="stat-pill">Max rank pool: {{ frecency.max_rank }}</span>
         </div>
+        {% if import_summary %}
+        <div class="alert alert-success bg-transparent border border-success-subtle text-success-emphasis small mt-4" role="status">
+            Imported {{ import_summary.created }} new links and updated {{ import_summary.updated }} existing entries.
+        </div>
+        {% endif %}
+        <div class="alert alert-warning bg-transparent border border-warning-subtle text-warning-emphasis small mt-4" role="status">
+            <div class="fw-semibold">Need an offline backup?</div>
+            <p class="mb-2">Exports stream directly from SQLite and may take several minutes for large libraries. Leave the tab open until the download finishes.</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-warning btn-sm" href="/exports/csv">Download CSV</a>
+                <a class="btn btn-outline-warning btn-sm" href="/exports/json">Download JSON</a>
+            </div>
+        </div>
+        <form action="/imports" method="post" enctype="multipart/form-data" class="bg-transparent border border-info-subtle rounded-3 p-3 mt-3">
+            <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-end">
+                <div class="flex-grow-1">
+                    <label for="import-upload" class="form-label small text-muted mb-1">Import CSV or JSON</label>
+                    <input type="file" class="form-control" id="import-upload" name="upload" accept=".csv,.json,text/csv,application/json" required>
+                </div>
+                <div>
+                    <label for="import-format" class="form-label small text-muted mb-1">Format</label>
+                    <select class="form-select" id="import-format" name="format" required>
+                        <option value="csv">CSV (id,name,url,rank,accessed,tags)</option>
+                        <option value="json">JSON (array of link objects)</option>
+                    </select>
+                </div>
+                <div class="d-flex align-items-end">
+                    <button class="btn btn-info" type="submit">Import links</button>
+                </div>
+            </div>
+            <div class="form-text">Leave the ID blank to create a new link. Matching IDs overwrite the name, URL, rank, accessed timestamp, and tag list.</div>
+        </form>
     </section>
 
     <form action="/dashboard/bulk-delete" method="post" id="bulk-action-form" class="d-flex flex-column gap-4">

@@ -1,19 +1,21 @@
 import asyncio
 import contextlib
 import sqlite3
+from datetime import datetime
 from math import ceil
 from time import time
 from typing import Dict, List, Optional
 
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from packaging.version import parse
 from starlette.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import services.db_utils as db_utils
+import services.io_utils as io_utils
 
 # Initialize the database, with the current app version.
 db_utils.init_db("2")
@@ -180,6 +182,14 @@ async def dashboard(request: Request, page: int = 0):
     tags = db_utils.get_all_tags()
     counts = db_utils.get_count()
     frecency = db_utils.get_frecency_config()
+    import_summary = None
+    if request.query_params.get("import") == "success":
+        try:
+            created = int(request.query_params.get("created", 0))
+            updated = int(request.query_params.get("updated", 0))
+        except ValueError:
+            created = updated = 0
+        import_summary = {"created": created, "updated": updated}
     return templates.TemplateResponse(
         "dashboard.html",
         template_context(
@@ -190,8 +200,44 @@ async def dashboard(request: Request, page: int = 0):
             all_tags=tags,
             counts=counts,
             frecency=frecency,
+            import_summary=import_summary,
         ),
     )
+
+
+@app.get("/exports/{format_name}")
+async def export_links(format_name: str):
+    normalized = format_name.lower()
+    if normalized not in {"csv", "json"}:
+        raise HTTPException(status_code=400, detail="Format must be 'csv' or 'json'.")
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    filename = f"startpage-links-{timestamp}.{normalized}"
+    media_type = "text/csv" if normalized == "csv" else "application/json"
+    stream = io_utils.export_db_links(normalized)
+    return StreamingResponse(
+        stream,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/imports")
+async def import_links_endpoint(format_name: str = Form(..., alias="format"), upload: UploadFile = File(...)):
+    normalized = format_name.lower()
+    if normalized not in {"csv", "json"}:
+        raise HTTPException(status_code=400, detail="Format must be 'csv' or 'json'.")
+    payload = await upload.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    try:
+        summary = io_utils.import_db_links(payload, normalized)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    redirect_url = (
+        app.url_path_for("dashboard")
+        + f"?import=success&created={summary['created']}&updated={summary['updated']}"
+    )
+    return RedirectResponse(redirect_url, status_code=303)
 
 
 # get next page of links for infinite scroll

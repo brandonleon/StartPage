@@ -99,6 +99,18 @@
                     </ul>
                 </div>
             </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Import &amp; export</h3>
+                    <p class="text-muted">Admins can download backups and restore them from the dashboard banner. Exports stream via <code>/exports/csv</code> or <code>/exports/json</code>, while imports POST to <code>/imports</code> using the same schema.</p>
+                    <ul class="small">
+                        <li>CSV files use the header <code>id,name,url,rank,accessed,tags</code> with semicolon-delimited tags.</li>
+                        <li>JSON exports mirror the same schema with a <code>tags</code> array.</li>
+                        <li>Leave <code>id</code> blank to create a new link during import; provide an <code>id</code> to overwrite the name, URL, rank, accessed timestamp, and tags.</li>
+                        <li>Headless servers can run <code>uv run python -m services.io_utils csv -o backups/links.csv</code> to export and <code>curl -F format=csv -F upload=@links.csv http://host/imports</code> to restore.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </section>
 
