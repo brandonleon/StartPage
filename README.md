@@ -65,6 +65,7 @@ The algorithm ensures that:
 
 ### Adding Links
 - Navigate to `/add` or click "Add" in the navbar
+- Start typing the link title/URL and the form will warn you if an existing entry already uses the same value
 - Enter a name and URL
 - Optionally add comma-separated tags (e.g., `work, documentation, python`)
 - Links are assigned the average rank on creation to naturally find their position

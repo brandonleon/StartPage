@@ -11,14 +11,59 @@
             <section class="glass-panel">
                 <p class="text-uppercase text-muted small mb-1">Add a new link</p>
                 <h1 class="h3 mb-4">Drop a URL and StartPage will track it automatically.</h1>
-                <form action="/add" method="post">
+                {% set values = form_values or {
+                    "link_name": "",
+                    "link_url": "",
+                    "tag_names": "",
+                    "is_temporary": False,
+                    "temporary_preset": "default",
+                    "temporary_custom_hours": ""
+                } %}
+                {% set errors = errors or {} %}
+                <form action="/add" method="post" novalidate>
                     <div class="mb-3">
                         <label for="link_name" class="form-label required">Link name</label>
-                        <input type="text" class="form-control" id="link_name" name="link_name" placeholder="Daily dashboard" required>
+                        <input type="text"
+                               class="form-control {% if errors.link_name %}is-invalid{% endif %}"
+                               id="link_name"
+                               name="link_name"
+                               placeholder="Daily dashboard"
+                               value="{{ values.link_name }}"
+                               hx-get="/duplicates/check?field=name"
+                               hx-trigger="keyup changed delay:500ms, search"
+                               hx-target="#duplicate-name-warning"
+                               hx-indicator="#duplicate-name-indicator"
+                               autocomplete="off"
+                               required>
+                        {% if errors.link_name %}
+                        <div class="invalid-feedback d-block">{{ errors.link_name }}</div>
+                        {% endif %}
+                        <div class="small text-muted mt-1">
+                            <span class="htmx-indicator" id="duplicate-name-indicator" style="display:none;">Checking duplicates…</span>
+                        </div>
+                        <div class="mt-2" id="duplicate-name-warning"></div>
                     </div>
                     <div class="mb-3">
                         <label for="link_url" class="form-label required">URL</label>
-                        <input type="url" class="form-control" id="link_url" name="link_url" placeholder="https://example.com" required>
+                        <input type="url"
+                               class="form-control {% if errors.link_url %}is-invalid{% endif %}"
+                               id="link_url"
+                               name="link_url"
+                               placeholder="https://example.com"
+                               value="{{ values.link_url }}"
+                               hx-get="/duplicates/check?field=url"
+                               hx-trigger="keyup changed delay:500ms, search"
+                               hx-target="#duplicate-url-warning"
+                               hx-indicator="#duplicate-url-indicator"
+                               autocomplete="off"
+                               required>
+                        {% if errors.link_url %}
+                        <div class="invalid-feedback d-block">{{ errors.link_url }}</div>
+                        {% endif %}
+                        <div class="small text-muted mt-1">
+                            <span class="htmx-indicator" id="duplicate-url-indicator" style="display:none;">Checking duplicates…</span>
+                        </div>
+                        <div class="mt-2" id="duplicate-url-warning"></div>
                     </div>
                     <div class="mb-3">
                         <label for="tag_names" class="form-label">Tags (optional)</label>
@@ -27,6 +72,7 @@
                                id="tag_names"
                                name="tag_names"
                                placeholder="e.g., personal, work, project-name"
+                               value="{{ values.tag_names }}"
                                autocomplete="off"
                                data-tag-input
                                data-tag-suggestions='{{ ((all_tags | default([])) | map(attribute="name") | list) | tojson | safe }}'>

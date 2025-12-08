@@ -4,6 +4,8 @@ from pathlib import Path
 from time import time
 from uuid import uuid4
 
+import pytest
+
 TEST_CONFIG_PATH = Path(__file__).resolve().parent / "test_config.toml"
 os.environ["STARTPAGE_CONFIG_PATH"] = str(TEST_CONFIG_PATH)
 
@@ -23,16 +25,12 @@ def teardown_module(module):
     app_config.reload_runtime_config()
 
 
-# Ensure count and pages are integers
 def test_get_count():
     assert isinstance(db_utils.get_count()["count"], int)
 
 
-# Ensure a list of links is returned
 def test_get_links():
-    # Ensure a list is returned.
     assert isinstance(db_utils.get_links(), list)
-    # Ensure the list contains links by validate the first link.
     assert isinstance(db_utils.get_links()[0]["id"], str)
     assert isinstance(db_utils.get_links()[0]["url"], str)
     assert isinstance(db_utils.get_links()[0]["name"], str)
@@ -96,3 +94,22 @@ def test_temp_link_config_round_trip():
         original["max_custom_hours"],
         original["purge_interval_seconds"],
     )
+
+
+def test_save_link_duplicate_url_raises():
+    url = f"https://duplicate-check.example/{uuid4()}"
+    first_id = db_utils.save_link(f"Primary-{uuid4()}", url)
+    with pytest.raises(db_utils.DuplicateLinkError):
+        db_utils.save_link(f"Duplicate-{uuid4()}", url)
+    db_utils.delete_link(first_id)
+
+
+def test_find_link_by_url_returns_summary():
+    name = f"Lookup-{uuid4()}"
+    url = f"https://lookup.example/{uuid4()}"
+    link_id = db_utils.save_link(name, url)
+    summary = db_utils.find_link_by_url(url)
+    assert summary is not None
+    assert summary["id"] == link_id
+    assert summary["name"] == name
+    db_utils.delete_link(link_id)

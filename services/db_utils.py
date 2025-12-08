@@ -1,5 +1,6 @@
 import re
 import sqlite3
+from sqlite3 import IntegrityError
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
 from time import time
@@ -15,6 +16,15 @@ db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
+
+
+class DuplicateLinkError(Exception):
+    """Raised when inserting or updating a link violates the unique name/url constraint."""
+
+    def __init__(self, field: str, value: str):
+        self.field = field
+        self.value = value
+        super().__init__(f"Duplicate {field}: {value}")
 
 
 def normalize_tag(tag_name: str) -> str:
@@ -145,6 +155,36 @@ def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
         con.commit()
     con.close()
     return link
+
+
+def find_link_by_url(url: str) -> Optional[Dict[str, Any]]:
+    """Return a serialized link that matches the provided URL, if any."""
+    return _find_link_by_column("url", url)
+
+
+def find_link_by_name(name: str) -> Optional[Dict[str, Any]]:
+    """Return a serialized link that matches the provided name, if any."""
+    return _find_link_by_column("name", name)
+
+
+def _find_link_by_column(column: str, value: str) -> Optional[Dict[str, Any]]:
+    normalized = (value or "").strip()
+    if not normalized:
+        return None
+    if column not in {"name", "url"}:
+        raise ValueError("Unsupported lookup column")
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    cur.execute(
+        f"SELECT id, name, url, rank, accessed, expires_at FROM links WHERE lower({column}) = lower(:value) LIMIT 1",
+        {"value": normalized},
+    )
+    row = cur.fetchone()
+    con.close()
+    if row is None:
+        return None
+    return _serialize_link_row(row)
 
 
 # Get links in batches of 20
@@ -303,13 +343,13 @@ def save_link(
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
-    if link_id is None:
-        cur.execute("SELECT avg(rank) FROM links")
-        rank = cur.fetchone()[0]
-        if rank is None:
-            rank = 1.0
-        new_id = str(uuid4())
-        with con as cur:
+    try:
+        if link_id is None:
+            cur.execute("SELECT avg(rank) FROM links")
+            rank = cur.fetchone()[0]
+            if rank is None:
+                rank = 1.0
+            new_id = str(uuid4())
             cur.execute(
                 "INSERT INTO links (id, url, name, rank, accessed, expires_at) VALUES (:id, :url, :name, :rank, :accessed, :expires_at)",
                 {
@@ -321,9 +361,9 @@ def save_link(
                     "expires_at": expires_at,
                 },
             )
+            con.commit()
             return new_id
-    else:
-        with con as cur:
+        else:
             cur.execute(
                 "UPDATE links SET name = :name, url = :url, expires_at = :expires_at WHERE id = :id",
                 {
@@ -333,7 +373,22 @@ def save_link(
                     "expires_at": expires_at,
                 },
             )
+            con.commit()
             return link_id
+    except IntegrityError as exc:
+        con.rollback()
+        raise _interpret_integrity_error(exc, name, url) from exc
+    finally:
+        con.close()
+
+
+def _interpret_integrity_error(exc: IntegrityError, name: str, url: str) -> DuplicateLinkError:
+    message = str(exc).lower()
+    if "links.name" in message:
+        return DuplicateLinkError("name", name)
+    if "links.url" in message or "links.id" in message:
+        return DuplicateLinkError("url", url)
+    return DuplicateLinkError("url", url)
 
 
 # Read metadata from database

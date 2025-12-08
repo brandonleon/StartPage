@@ -6,7 +6,7 @@ from time import time
 from typing import Dict, List, Optional
 
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI, Form, Request
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from packaging.version import parse
@@ -259,6 +259,14 @@ async def search(request: Request, text: str = "", view: str = "links"):
 @app.get("/add", response_class=HTMLResponse)
 async def add_display(request: Request):
     all_tags = db_utils.get_all_tags()
+    default_values = {
+        "link_name": "",
+        "link_url": "",
+        "tag_names": "",
+        "is_temporary": False,
+        "temporary_preset": "default",
+        "temporary_custom_hours": "",
+    }
     return templates.TemplateResponse(
         "add.html",
         template_context(
@@ -266,16 +274,55 @@ async def add_display(request: Request):
             title=f"{config['app_name']} · Add Link",
             all_tags=all_tags,
             temp_link_form=_build_temp_link_form(
+                enabled=False,
                 preset="default",
                 default_hours=temp_link_settings["default_ttl_hours"],
             ),
+            form_values=default_values,
+            errors={},
         ),
+    )
+
+
+@app.get("/duplicates/check", response_class=HTMLResponse)
+async def check_duplicate_link(
+    request: Request,
+    field: str,
+    link_name: Optional[str] = None,
+    link_url: Optional[str] = None,
+):
+    lookup_field = field.strip().lower()
+    if lookup_field == "name":
+        value = (link_name or "").strip()
+        finder = db_utils.find_link_by_name
+    elif lookup_field == "url":
+        value = (link_url or "").strip()
+        finder = db_utils.find_link_by_url
+    else:
+        raise HTTPException(status_code=400, detail="Invalid field")
+
+    if not value:
+        return HTMLResponse("")
+
+    duplicate = finder(value)
+    if not duplicate:
+        return HTMLResponse("")
+
+    return templates.TemplateResponse(
+        "partials/duplicate_link_warning.html",
+        {
+            "request": request,
+            "duplicate": duplicate,
+            "duplicate_field": lookup_field,
+            "duplicate_value": value,
+        },
     )
 
 
 # process the new link
 @app.post("/add", response_class=HTMLResponse)
 async def add_link(
+    request: Request,
     link_name: str = Form(...),
     link_url: str = Form(...),
     tag_names: str = Form(""),
@@ -283,16 +330,48 @@ async def add_link(
     temporary_preset: str = Form("24h"),
     temporary_custom_hours: Optional[str] = Form(None),
 ):
+    form_values = {
+        "link_name": link_name.strip(),
+        "link_url": link_url.strip(),
+        "tag_names": tag_names.strip(),
+        "is_temporary": is_temporary is not None,
+        "temporary_preset": temporary_preset,
+        "temporary_custom_hours": (temporary_custom_hours or "").strip(),
+    }
     # Save the link and get the link_id
     expires_at = _resolve_expiration(
         is_temporary, temporary_preset, temporary_custom_hours
     )
-    link_id = db_utils.save_link(link_name, link_url, expires_at=expires_at)
+    try:
+        link_id = db_utils.save_link(form_values["link_name"], form_values["link_url"], expires_at=expires_at)
+    except db_utils.DuplicateLinkError as exc:
+        field_key = "link_name" if exc.field == "name" else "link_url"
+        errors = {
+            field_key: f"A link with this {exc.field} already exists. Use the existing entry instead."
+        }
+        all_tags = db_utils.get_all_tags()
+        temp_form = _build_temp_link_form(
+            enabled=form_values["is_temporary"],
+            preset=form_values["temporary_preset"],
+            custom_hours=int(form_values["temporary_custom_hours"]) if form_values["temporary_custom_hours"] else None,
+        )
+        return templates.TemplateResponse(
+            "add.html",
+            template_context(
+                request=request,
+                title=f"{config['app_name']} · Add Link",
+                all_tags=all_tags,
+                temp_link_form=temp_form,
+                form_values=form_values,
+                errors=errors,
+            ),
+            status_code=400,
+        )
 
     # Process tags if provided
-    if tag_names.strip():
+    if form_values["tag_names"]:
         # Split by comma and process each tag
-        tags = [tag.strip() for tag in tag_names.split(",") if tag.strip()]
+        tags = [tag.strip() for tag in form_values["tag_names"].split(",") if tag.strip()]
         for tag in tags:
             db_utils.add_tag_to_link(link_id, tag)
 
