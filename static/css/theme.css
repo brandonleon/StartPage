@@ -170,6 +170,11 @@ html[data-theme="mocha"] .form-text {
     color: var(--ctp-text);
 }
 
+.text-muted,
+.text-body-secondary {
+    color: var(--ctp-subtle) !important;
+}
+
 .search-clear-btn {
     position: absolute;
     top: 50%;
@@ -196,6 +201,41 @@ html[data-theme="mocha"] .form-text {
     display: none;
     color: var(--ctp-subtle);
     z-index: 5;
+}
+
+.tag-suggestions {
+    margin-top: 0.5rem;
+    border: 1px solid var(--ctp-card-border);
+    border-radius: 0.75rem;
+    background-color: var(--ctp-surface);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    padding: 0.35rem;
+    display: none;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.tag-suggestions.is-visible {
+    display: flex;
+}
+
+.tag-suggestions button {
+    border: 1px solid var(--ctp-card-border);
+    border-radius: 999px;
+    padding: 0.15rem 0.75rem;
+    background: transparent;
+    color: var(--ctp-text);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background var(--transition-speed), color var(--transition-speed), border var(--transition-speed);
+}
+
+.tag-suggestions button:hover,
+.tag-suggestions button:focus-visible {
+    background-color: var(--ctp-overlay);
+    color: var(--ctp-text);
+    border-color: var(--ctp-overlay);
+    outline: none;
 }
 
 .search-input.htmx-request .search-indicator {

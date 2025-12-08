@@ -377,6 +377,12 @@ async def delete_tag_route(request: Request, tag_id: str):
     )
 
 
+@app.post("/tag/{tag_id}/rename")
+async def rename_tag_route(tag_id: str, new_name: str = Form(...)):
+    db_utils.rename_tag(tag_id, new_name)
+    return RedirectResponse(app.url_path_for("tags_page"), status_code=303)
+
+
 @app.get("/tag/{tag_name}", response_class=HTMLResponse)
 async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
     lks = db_utils.get_links_by_tag(tag_name, page)

@@ -120,12 +120,185 @@ function initBulkSelection() {
     });
 }
 
+function initTagSuggestions() {
+    document.querySelectorAll("[data-tag-input]").forEach((input) => {
+        if (input.dataset.tagSuggestionsBound === "true") {
+            return;
+        }
+        input.dataset.tagSuggestionsBound = "true";
+        let suggestions = [];
+        try {
+            suggestions = JSON.parse(input.dataset.tagSuggestions || "[]");
+        } catch {
+            suggestions = [];
+        }
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            return;
+        }
+        suggestions = suggestions.map((tag) => String(tag));
+        const container = document.createElement("div");
+        container.className = "tag-suggestions";
+        input.insertAdjacentElement("afterend", container);
+
+        const getState = () => {
+            const raw = input.value || "";
+            const parts = raw.split(",");
+            let activePart = "";
+            if (parts.length === 1) {
+                activePart = parts[0];
+                parts.length = 0;
+            } else if (parts.length > 1) {
+                activePart = parts.pop() ?? "";
+            }
+            if (/,\s*$/.test(raw)) {
+                parts.push(activePart);
+                activePart = "";
+            }
+            const committed = parts.map((part) => part.trim()).filter((part) => part.length > 0);
+            return { committed, active: activePart.trim() };
+        };
+
+        const hideSuggestions = () => {
+            container.classList.remove("is-visible");
+            container.innerHTML = "";
+        };
+
+        const applySuggestion = (tag) => {
+            const { committed, active } = getState();
+            const tokens = committed.slice();
+            if (active) {
+                tokens.push(tag);
+            } else if (!tokens.some((value) => value.toLowerCase() === tag.toLowerCase())) {
+                tokens.push(tag);
+            } else {
+                hideSuggestions();
+                return;
+            }
+            input.value = tokens.join(", ");
+            hideSuggestions();
+            input.focus();
+            input.dispatchEvent(new Event("input"));
+        };
+
+        const updateSuggestions = () => {
+            const { committed, active } = getState();
+            const committedSet = new Set(committed.map((value) => value.toLowerCase()));
+            const query = active.toLowerCase();
+            const matches = suggestions
+                .filter((tag) => {
+                    const normalized = tag.toLowerCase();
+                    if (committedSet.has(normalized)) {
+                        return false;
+                    }
+                    if (!query) {
+                        return true;
+                    }
+                    return normalized.startsWith(query);
+                })
+                .slice(0, 6);
+            if (matches.length === 0) {
+                hideSuggestions();
+                return;
+            }
+            container.innerHTML = "";
+            matches.forEach((tag) => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.textContent = tag;
+                button.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    applySuggestion(tag);
+                });
+                container.appendChild(button);
+            });
+            container.classList.add("is-visible");
+        };
+
+        input.addEventListener("input", updateSuggestions);
+        input.addEventListener("focus", updateSuggestions);
+        input.addEventListener("blur", () => {
+            setTimeout(() => hideSuggestions(), 120);
+        });
+        container.addEventListener("mousedown", (event) => event.preventDefault());
+        document.addEventListener("click", (event) => {
+            if (event.target === input || container.contains(event.target)) {
+                return;
+            }
+            hideSuggestions();
+        });
+    });
+}
+
+function initTagRenameControls() {
+    document.querySelectorAll("[data-tag-rename-toggle]").forEach((button) => {
+        if (button.dataset.tagRenameBound === "true") {
+            return;
+        }
+        button.dataset.tagRenameBound = "true";
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            const card = button.closest("[data-tag-card]");
+            if (!card) {
+                return;
+            }
+            const form = card.querySelector("[data-tag-rename-form]");
+            const actions = card.querySelector("[data-tag-actions]");
+            if (!form) {
+                return;
+            }
+            const shouldShow = form.classList.contains("d-none");
+            document.querySelectorAll("[data-tag-rename-form]").forEach((otherForm) => {
+                if (otherForm === form) {
+                    return;
+                }
+                otherForm.classList.add("d-none");
+                const otherCard = otherForm.closest("[data-tag-card]");
+                otherCard?.querySelector("[data-tag-actions]")?.classList.remove("d-none");
+                otherCard?.querySelector("[data-tag-rename-toggle]")?.setAttribute("aria-expanded", "false");
+            });
+            if (shouldShow) {
+                form.classList.remove("d-none");
+                actions?.classList.add("d-none");
+                const input = form.querySelector("input[name='new_name']");
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+                button.setAttribute("aria-expanded", "true");
+            } else {
+                form.classList.add("d-none");
+                actions?.classList.remove("d-none");
+                button.setAttribute("aria-expanded", "false");
+            }
+        });
+    });
+
+    document.querySelectorAll("[data-tag-rename-cancel]").forEach((button) => {
+        if (button.dataset.tagRenameCancelBound === "true") {
+            return;
+        }
+        button.dataset.tagRenameCancelBound = "true";
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            const form = button.closest("[data-tag-rename-form]");
+            const card = button.closest("[data-tag-card]");
+            form?.classList.add("d-none");
+            card?.querySelector("[data-tag-actions]")?.classList.remove("d-none");
+            card?.querySelector("[data-tag-rename-toggle]")?.setAttribute("aria-expanded", "false");
+        });
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSearchClear();
     initBulkSelection();
+    initTagSuggestions();
+    initTagRenameControls();
 });
 
 document.body.addEventListener("htmx:afterSwap", () => {
     initBulkSelection();
+    initTagSuggestions();
+    initTagRenameControls();
 });

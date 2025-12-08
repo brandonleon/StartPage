@@ -22,8 +22,14 @@
                     </div>
                     <div class="mb-3">
                         <label for="tag_names" class="form-label">Tags (optional)</label>
-                        <input type="text" class="form-control" id="tag_names" name="tag_names"
-                               placeholder="e.g., personal, work, project-name">
+                        <input type="text"
+                               class="form-control"
+                               id="tag_names"
+                               name="tag_names"
+                               placeholder="e.g., personal, work, project-name"
+                               autocomplete="off"
+                               data-tag-input
+                               data-tag-suggestions='{{ ((all_tags | default([])) | map(attribute="name") | list) | tojson | safe }}'>
                         <div class="form-text">Separate multiple tags with commas. Tags are automatically lowercased.</div>
                     </div>
                     {% if all_tags %}

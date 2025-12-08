@@ -573,6 +573,66 @@ def delete_tag(tag_id: str) -> bool:
     return True
 
 
+def rename_tag(tag_id: str, new_name: str) -> bool:
+    """
+    Rename a tag. Merges with an existing tag if the target name already exists.
+
+    Parameters:
+        tag_id (str): Tag id to rename.
+        new_name (str): Desired tag name.
+
+    Returns:
+        bool: True if the tag was updated or merged, False otherwise.
+    """
+    new_name = new_name.strip().lower()
+    if not new_name:
+        return False
+
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    cur.execute("SELECT id FROM tags WHERE id = :tag_id", {"tag_id": tag_id})
+    current = cur.fetchone()
+    if not current:
+        con.close()
+        return False
+
+    cur.execute("SELECT id FROM tags WHERE name = :name", {"name": new_name})
+    existing = cur.fetchone()
+
+    if existing and existing["id"] == tag_id:
+        con.close()
+        return True
+
+    if existing:
+        existing_id = existing["id"]
+        cur.execute(
+            "INSERT OR IGNORE INTO tag_link_map (tag_id, link_id) "
+            "SELECT :new_id, link_id FROM tag_link_map WHERE tag_id = :old_id",
+            {"new_id": existing_id, "old_id": tag_id},
+        )
+        cur.execute("DELETE FROM tag_link_map WHERE tag_id = :old_id", {"old_id": tag_id})
+        cur.execute("DELETE FROM tags WHERE id = :old_id", {"old_id": tag_id})
+        cur.execute(
+            "UPDATE tags SET count = (SELECT COUNT(*) FROM tag_link_map WHERE tag_id = :tag_id) WHERE id = :tag_id",
+            {"tag_id": existing_id},
+        )
+    else:
+        cur.execute(
+            "UPDATE tags SET name = :name WHERE id = :tag_id",
+            {"name": new_name, "tag_id": tag_id},
+        )
+        cur.execute(
+            "UPDATE tags SET count = (SELECT COUNT(*) FROM tag_link_map WHERE tag_id = :tag_id) WHERE id = :tag_id",
+            {"tag_id": tag_id},
+        )
+
+    con.commit()
+    con.close()
+    return True
+
+
 def get_links_by_tag(tag_name: str, page: int = 0, batch: Optional[int] = None) -> List[dict]:
     """
     Get links filtered by tag name, sorted by frecency.
