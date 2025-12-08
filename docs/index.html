@@ -65,6 +65,34 @@
         </ul>
     </section>
 
+    <section class="glass-panel mb-4" id="features">
+        <h2 class="h3 mb-3">Feature highlights</h2>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Guided tag entry</h3>
+                    <p class="text-muted">Any tag input rendered with <code>data-tag-input</code> automatically bootstraps the suggestion widget defined in <code>static/js/theme.js</code>. Pass the existing tag names through <code>data-tag-suggestions</code> (JSON string) and the UI handles filtering, deduping, and insertion.</p>
+                    <ul class="small">
+                        <li>Suggestions appear on focus and update as the user types.</li>
+                        <li>Comma-separated inputs are respected, so pasting multiple tags still works.</li>
+                        <li>Suggestions exclude already-added tags to prevent duplicates.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Tag rename &amp; merge</h3>
+                    <p class="text-muted">The <code>/tags</code> view now exposes an inline Rename control for every tag. Submitting the form posts to <code>/tag/:id/rename</code> and ultimately <code>db_utils.rename_tag</code>.</p>
+                    <ul class="small">
+                        <li>Incoming names are lowercased and trimmed server-side.</li>
+                        <li>If the destination name already exists, the links are merged into that tag and the original row is removed.</li>
+                        <li>Otherwise the row is renamed in place and counts are recalculated.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Deployment Options -->
     <section class="glass-panel mb-4" id="deployment">
         <h2 class="h3 mb-3">Deployment Options</h2>
@@ -192,6 +220,27 @@ uv run mypy services</code></pre>
             <li><strong>Local:</strong> <code>data/links.db</code></li>
             <li><strong>Docker:</strong> <code>~/.config/startpage/links.db</code> (mounted from host)</li>
         </ul>
+
+        <h3 class="h5 mt-4 mb-2">Direct SQL maintenance</h3>
+        <p>For bulk edits or scripted maintenance you can work directly against the SQLite database.</p>
+        <ol>
+            <li class="mb-3">
+                <strong>Connect with sqlite3.</strong>
+                <pre class="bg-dark text-light p-3 rounded"><code>sqlite3 data/links.db
+.headers on
+.mode column
+SELECT id, name, rank FROM links ORDER BY rank DESC LIMIT 5;
+UPDATE links SET rank = 1.0 WHERE name = 'Docs';
+.quit</code></pre>
+            </li>
+            <li class="mb-3">
+                <strong>Understand the schema.</strong> Core tables are <code>links</code> (primary data), <code>tags</code>, and <code>tag_link_map</code>. Foreign keys keep orphaned rows from lingering, so deleting a tag automatically clears <code>tag_link_map</code> entries.
+            </li>
+            <li>
+                <strong>Automate with Python.</strong> Import <code>services.db_utils</code> in your own scripts to re-use helpers such as <code>save_link</code>, <code>get_links</code>, <code>rename_tag</code>, or <code>delete_link</code>.
+            </li>
+        </ol>
+        <p class="text-muted small mb-0">Remember: treat <code>data/links.db</code> as disposable state—commit schema changes and SQL scripts, not the database file.</p>
 
         <h3 class="h5 mt-4 mb-2">Schema Versions</h3>
         <table class="table table-dark">

@@ -8,72 +8,57 @@
 <div class="container app-shell">
     <section class="glass-panel mb-4">
         <p class="text-uppercase text-muted small mb-1">Guide</p>
-        <h1 class="h3 mb-3">How StartPage keeps your daily launchpad tidy.</h1>
-        <p class="mb-3">The homepage lists links ordered by a dynamic rank: every redirect bumps the rank up,
-            and inactivity slowly nudges it down. Anything that drifts below <strong>1.0</strong> is eligible for cleanup, so your most-used links stay at the top.</p>
-        <p class="text-muted small mb-0">
-            <strong>Tech stack:</strong> FastAPI + Uvicorn + SQLite + Jinja2 templates + HTMX for dynamic content loading.
-            Designed for self-hosting with Docker support.
-        </p>
+        <h1 class="h3 mb-3">Everything you need to use StartPage every day.</h1>
+        <p class="mb-0">Links are ranked by how often (and how recently) you open them. Each click gently bumps the rank up,
+            idle links drift down, and anything below <strong>1.0</strong> becomes a pruning candidate so the list stays lean.</p>
     </section>
 
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <section class="glass-panel h-100">
-                <h2 class="h5 mb-3">Everyday workflow</h2>
-                <ul class="list-unstyled d-grid gap-3">
-                    <li>
-                        <strong>Browse &amp; search.</strong>
-                        Use the global search box in the navbar—results stream in without reloading thanks to HTMX.
-                    </li>
-                    <li>
-                        <strong>Dashboard maintenance.</strong>
-                        The Dashboard groups cards by health so you can edit or delete low-rank items before they disappear.
-                    </li>
-                    <li>
-                        <strong>Add links quickly.</strong>
-                        Drop a URL on the Add page and we seed it with the average rank so it naturally finds its place.
-                    </li>
-                    <li>
-                        <strong>Organize with tags.</strong>
-                        Add tags when creating or editing links (comma-separated). View all tags at <code>/tags</code> and filter links by tag.
-                    </li>
-                    <li>
-                        <strong>Automatic pruning.</strong>
-                        Each redirect updates the <code>accessed</code> timestamp and rank. Stale links (rank &lt; 1) are the first candidates for deletion.
-                    </li>
-                </ul>
-            </section>
+    <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Navigate &amp; search</h2>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Pinned links</h3>
+                    <p class="mb-0">The home page shows the highest-ranked items first. Use the “Pinned Links” filter pills to narrow the view to a single tag.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Global search</h3>
+                    <p class="mb-0">Use the search bar in the navbar. Results stream in without a reload and you can keep scrolling to fetch additional batches.</p>
+                </div>
+            </div>
         </div>
-        <div class="col-lg-6">
-            <section class="glass-panel h-100">
-                <h2 class="h5 mb-3">Modify the database</h2>
-                <p>The application stores everything in a local SQLite file at:</p>
-                <p class="callout small mb-3">{{ db_path }}</p>
-                <ol class="ps-3">
-                    <li class="mb-3">
-                        <strong>In-app editing.</strong> Use the Add/Edit forms for day-to-day work—each save runs through
-                        <code>services/db_utils.py</code> to validate data and keep ranks balanced.
-                    </li>
-                    <li class="mb-3">
-                        <strong>Direct SQL tweaks.</strong> When you need to bulk-edit, open the database with <code>sqlite3 {{ db_path }}</code>
-                        and manipulate the <code>links</code> table. The core columns are <code>id</code>, <code>name</code>, <code>url</code>,
-                        <code>rank</code>, and <code>accessed</code> (Unix timestamp). Tags are stored in the <code>tags</code> table with
-                        relationships in <code>tagmap</code>.
-                        <pre class="callout small mt-3 mb-0">sqlite3 {{ db_path }}
-UPDATE links SET rank = 1.0 WHERE name = 'Docs';
-SELECT * FROM tags;
-.quit</pre>
-                    </li>
-                    <li>
-                        <strong>Automated scripts.</strong> Feel free to import <code>services.db_utils</code> into your own automation to reuse helpers such as
-                        <code>save_link</code>, <code>get_links</code>, or <code>delete_link</code>.
-                    </li>
-                </ol>
-                <p class="text-muted small mb-0">Tip: the database is disposable state—commit schema changes, not the file itself.</p>
-            </section>
+    </section>
+
+    <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Add &amp; edit links</h2>
+        <ul class="list-unstyled d-grid gap-3">
+            <li>
+                <strong>Smart tag suggestions.</strong> When you type in the tag field, suggestions pop up automatically and filter as you go. Click a pill to insert the tag without worrying about typos.
+            </li>
+            <li>
+                <strong>Balanced rank.</strong> Newly added links start with the average rank so they appear near the top but settle naturally over time.
+            </li>
+            <li>
+                <strong>Bulk actions.</strong> The dashboard lets you select several links at once to delete or append tags in batches.
+            </li>
+        </ul>
+    </section>
+
+    <section class="glass-panel">
+        <h2 class="h5 mb-3">Stay organized with tags</h2>
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <p><strong>Tag directory.</strong> Visit <code>/tags</code> to see every tag, how many links it touches, and quick delete controls.</p>
+                <p><strong>Renaming &amp; merging.</strong> Use the new inline Rename button to fix spelling mistakes or consolidate duplicates. If you pick an existing name, StartPage automatically merges the links so you only keep one tag.</p>
+            </div>
+            <div class="col-lg-6">
+                <p><strong>Filtering.</strong> Click any badge to jump into a tag-scoped view. Infinite scroll and search continue to work inside that filtered list.</p>
+                <p><strong>Automatic cleanup.</strong> Tags disappear when they no longer belong to any links, so you never have to manually tidy empty labels.</p>
+            </div>
         </div>
-    </div>
+    </section>
 </div>
 
 {% include '_footer.html' %}
