@@ -431,7 +431,10 @@ def get_all_tags() -> List[Dict[str, Any]]:
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
-    cur.execute("SELECT id, name, count FROM tags ORDER BY name ASC")
+    cur.execute(
+        "SELECT id, name, count FROM tags "
+        "ORDER BY count DESC, name ASC"
+    )
     rows = cur.fetchall()
     con.close()
     return [{"id": row["id"], "name": row["name"], "count": row["count"]} for row in rows]

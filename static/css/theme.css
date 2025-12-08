@@ -162,6 +162,14 @@ a:hover {
     padding-right: 2.5rem;
 }
 
+.form-text {
+    color: var(--ctp-subtle);
+}
+
+html[data-theme="mocha"] .form-text {
+    color: var(--ctp-text);
+}
+
 .search-clear-btn {
     position: absolute;
     top: 50%;
