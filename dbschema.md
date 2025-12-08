@@ -66,8 +66,13 @@ Junction table for many-to-many relationship between links and tags.
 ### config
 Application configuration settings.
 
-- `name` (TEXT): Setting name (e.g., 'batch_size')
+- `name` (TEXT): Setting name (e.g., 'batch' or 'max_rank')
 - `value` (TEXT): Setting value
+
+Current keys:
+
+- `batch`: Links per page batch size shown on dashboards and the home feed
+- `max_rank`: Maximum rank pool allowed before the pruning job runs
 
 ### metadata
 Schema version tracking for migrations.

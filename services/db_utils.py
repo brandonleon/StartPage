@@ -2,13 +2,16 @@ import sqlite3
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
 from time import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import timeago
 import tomlkit
 
 db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
+
+DEFAULT_BATCH_SIZE = 20
+DEFAULT_MAX_RANK = 1000
 
 
 # Get individual link
@@ -42,28 +45,29 @@ def get_link(link_id: str, increment_rank: bool) -> sqlite3.Row:
 
 
 # Get links in batches of 20
-def get_links(page: int = 0, batch: int = 20) -> List[dict]:
+def get_links(page: int = 0, batch: Optional[int] = None) -> List[dict]:
     """
-    Get links in batches of n, or 20 if n not supplied.
+    Get links in batches of n, defaulting to the configured batch size.
 
     Parameters:
         page (int): Page number.
-        batch (int): Number of links to return per page.
+        batch (int | None): Number of links to return per page.
 
     Returns:
         list: List of links with their tags.
     """
-    page *= batch
-
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
 
     cur = con.cursor()
+    if batch is None:
+        batch = _get_batch_size(cur)
+    offset = page * batch
     cur.execute(
         "SELECT id, url, name, rank, accessed fROM links "
         "ORDER BY 10000 * rank * (3.75/((0.0001 * (strftime('%s','now') - accessed) + 1) + 0.25)) DESC "
         "LIMIT :page, :batch;",
-        {"page": page, "batch": batch},
+        {"page": offset, "batch": batch},
     )
     rows = cur.fetchall()
 
@@ -97,9 +101,38 @@ def _get_batch_size(cur: sqlite3.Cursor) -> int:
     )
     row = cur.fetchone()
     try:
-        return max(1, int(row[0])) if row and row[0] is not None else 20
+        return max(1, int(row[0])) if row and row[0] is not None else DEFAULT_BATCH_SIZE
     except (TypeError, ValueError):
-        return 20
+        return DEFAULT_BATCH_SIZE
+
+
+def _get_max_rank(cur: sqlite3.Cursor) -> int:
+    """Read the max_rank pruning limit stored in config."""
+    cur.execute(
+        "SELECT value FROM config WHERE name = 'max_rank' LIMIT 1;"
+    )
+    row = cur.fetchone()
+    try:
+        return max(1, int(row[0])) if row and row[0] is not None else DEFAULT_MAX_RANK
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_RANK
+
+
+def _ensure_config_defaults() -> None:
+    """Ensure new config rows exist for deployments created before this release."""
+    defaults = {
+        "batch": str(DEFAULT_BATCH_SIZE),
+        "max_rank": str(DEFAULT_MAX_RANK),
+    }
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    for name, value in defaults.items():
+        cur.execute(
+            "INSERT OR IGNORE INTO config (id, name, value) VALUES (:id, :name, :value)",
+            {"id": str(uuid4()), "name": name, "value": value},
+        )
+    con.commit()
+    con.close()
 
 
 def get_count() -> Dict[str, int]:
@@ -168,6 +201,8 @@ def init_db(cur_version: str) -> None:
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
+    con.close()
+    _ensure_config_defaults()
 
 
 # add link to database
@@ -239,6 +274,41 @@ def read_config() -> Dict[str, str]:
     return d
 
 
+def get_frecency_config() -> Dict[str, int]:
+    """Return the current batch size and max rank thresholds."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    batch_size = _get_batch_size(cur)
+    max_rank = _get_max_rank(cur)
+    con.close()
+    return {"batch_size": batch_size, "max_rank": max_rank}
+
+
+def _upsert_config_value(cur: sqlite3.Cursor, name: str, value: str) -> None:
+    cur.execute(
+        "UPDATE config SET value = :value WHERE name = :name",
+        {"name": name, "value": value},
+    )
+    if cur.rowcount == 0:
+        cur.execute(
+            "INSERT INTO config (id, name, value) VALUES (:id, :name, :value)",
+            {"id": str(uuid4()), "name": name, "value": value},
+        )
+
+
+def update_frecency_config(batch_size: int, max_rank: int) -> Dict[str, int]:
+    """Persist validated frecency settings and return the stored values."""
+    batch_size = max(1, batch_size)
+    max_rank = max(1, max_rank)
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    _upsert_config_value(cur, "batch", str(batch_size))
+    _upsert_config_value(cur, "max_rank", str(max_rank))
+    con.commit()
+    con.close()
+    return {"batch_size": batch_size, "max_rank": max_rank}
+
+
 # Upgrade the database
 def upgrade_db(cur_version: str, desired_version: str) -> None:
     """
@@ -267,7 +337,7 @@ def upgrade_db(cur_version: str, desired_version: str) -> None:
 
 
 # Decrement the rank of all links when the sum of ranks is greater than the max rank.
-def decrement_rank(max_rank: int = 1000) -> None:
+def decrement_rank(max_rank: Optional[int] = None) -> None:
     """
     Decrement the rank of all links when the sum of ranks is greater than the max rank.
 
@@ -276,6 +346,8 @@ def decrement_rank(max_rank: int = 1000) -> None:
     """
     con = sqlite3.connect(db_path)
     cur = con.cursor()
+    if max_rank is None:
+        max_rank = _get_max_rank(cur)
     cur.execute("SELECT sum(rank) FROM links")
     total_rank = cur.fetchone()[0]
     # total_rank will be None if there are no links in the database.
@@ -349,12 +421,12 @@ def search_links(query: str) -> List[Dict[str, str]]:
 
 
 # Tag management functions
-def get_all_tags() -> List[Dict[str, any]]:
+def get_all_tags() -> List[Dict[str, Any]]:
     """
     Get all tags with their counts.
 
     Returns:
-        List[Dict[str, any]]: List of tags with id, name, and count.
+        List[Dict[str, Any]]: List of tags with id, name, and count.
     """
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
@@ -498,23 +570,24 @@ def delete_tag(tag_id: str) -> bool:
     return True
 
 
-def get_links_by_tag(tag_name: str, page: int = 0, batch: int = 20) -> List[dict]:
+def get_links_by_tag(tag_name: str, page: int = 0, batch: Optional[int] = None) -> List[dict]:
     """
     Get links filtered by tag name, sorted by frecency.
 
     Parameters:
         tag_name (str): Tag name to filter by.
         page (int): Page number.
-        batch (int): Number of links to return per page.
+        batch (int | None): Number of links to return per page.
 
     Returns:
         list: List of links with the specified tag, including all their tags.
     """
-    page *= batch
-
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
+    if batch is None:
+        batch = _get_batch_size(cur)
+    offset = page * batch
 
     cur.execute(
         "SELECT l.id, l.url, l.name, l.rank, l.accessed "
@@ -524,7 +597,7 @@ def get_links_by_tag(tag_name: str, page: int = 0, batch: int = 20) -> List[dict
         "WHERE t.name = :tag_name "
         "ORDER BY 10000 * l.rank * (3.75/((0.0001 * (strftime('%s','now') - l.accessed) + 1) + 0.25)) DESC "
         "LIMIT :page, :batch",
-        {"tag_name": tag_name, "page": page, "batch": batch},
+        {"tag_name": tag_name, "page": offset, "batch": batch},
     )
     rows = cur.fetchall()
     con.close()
@@ -548,12 +621,12 @@ def get_links_by_tag(tag_name: str, page: int = 0, batch: int = 20) -> List[dict
 
 
 # Get database statistics.
-def get_stats() -> Dict[str, any]:
+def get_stats() -> Dict[str, Any]:
     """
     Get database statistics including rank stats, access patterns, and more.
 
     Returns:
-        Dict[str, any]: Dictionary containing various database statistics.
+        Dict[str, Any]: Dictionary containing various database statistics.
     """
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
@@ -609,6 +682,7 @@ def get_stats() -> Dict[str, any]:
 
     # Get batch size configuration
     batch_size = _get_batch_size(cur)
+    max_rank = _get_max_rank(cur)
 
     con.close()
 
@@ -658,6 +732,6 @@ def get_stats() -> Dict[str, any]:
         ],
         "config": {
             "batch_size": batch_size,
-            "max_rank": 1000,  # TODO: Make this configurable
+            "max_rank": max_rank,
         },
     }

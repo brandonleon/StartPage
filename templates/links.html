@@ -1,7 +1,8 @@
+{% set page_batch_size = batch_size | default(20) %}
 {% if links %}
     {% for link in links %}
         <li class="list-group-item flex-column align-items-start"
-            {% if next_page and loop.index == 20 %}
+            {% if next_page and loop.index == page_batch_size %}
                 {% if filtered_tag %}
                     hx-get="/tag/{{ filtered_tag }}/links/{{ next_page }}"
                 {% else %}

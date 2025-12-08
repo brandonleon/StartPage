@@ -7,6 +7,7 @@ StartPage is a self-hosted, frecency-based link manager designed to serve as you
 - **Dark/light theme** - Toggle between mocha (dark) and latte (light) themes
 - **Search functionality** - Real-time search with HTMX-powered dynamic loading
 - **Dashboard monitoring** - View link health and manage low-rank items before automatic cleanup
+- **Configurable frecency** - Tune pagination size and the rank decay threshold without editing the database
 - **Docker support** - Easy deployment with persistent storage
 - **FastAPI backend** - Modern async Python web framework with SQLite storage
 
@@ -78,6 +79,10 @@ The algorithm ensures that:
 - Click any link to visit it (automatically increments rank)
 - View `/dashboard` to see links grouped by health status
 - Check `/stats` for database statistics
+
+### Frecency Settings
+- Visit `/settings` (or the navbar link) to adjust the links-per-page batch size and the max rank pool used during pruning
+- Settings are validated server-side and apply immediately; refresh open tabs to pick up changes
 
 ### Theme Switching
 Click the theme toggle in the navbar to switch between dark (mocha) and light (latte) modes. Theme preference is stored in localStorage.

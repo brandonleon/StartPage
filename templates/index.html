@@ -39,14 +39,15 @@
             </div>
         </div>
         {% endif %}
+        {% set page_batch_size = batch_size | default(20) %}
         <ul class="list-group list-group-flush" id="search-results">
             {% for link in links %}
                 <li class="list-group-item flex-column align-items-start"
-                    {% if loop.index == 20 %}
+                    {% if loop.index == page_batch_size %}
                         {% if filtered_tag %}
-                            hx-get="/tag/{{ filtered_tag }}/links/1"
+                            hx-get="/tag/{{ filtered_tag }}/links/{{ page + 1 }}"
                         {% else %}
-                            hx-get="/links/1"
+                            hx-get="/links/{{ page + 1 }}"
                         {% endif %}
                         hx-trigger="revealed"
                         hx-swap="afterend"

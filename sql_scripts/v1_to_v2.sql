@@ -15,5 +15,9 @@ CREATE TABLE IF NOT EXISTS tag_link_map
  FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
 );
 
+INSERT INTO config (id, name, value)
+SELECT lower(hex(randomblob(16))), 'max_rank', '1000'
+WHERE NOT EXISTS (SELECT 1 FROM config WHERE name = 'max_rank');
+
 -- Update database version
 UPDATE metadata SET value = '2.0.0' WHERE name = 'db_version';

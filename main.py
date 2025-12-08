@@ -64,6 +64,7 @@ async def favicon():
 async def root(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
     tags = db_utils.get_all_tags()
+    frecency = db_utils.get_frecency_config()
     return templates.TemplateResponse(
         "index.html",
         template_context(
@@ -72,6 +73,7 @@ async def root(request: Request, page: int = 0):
             page=page,
             title=f"{config['app_name']} · Home",
             all_tags=tags,
+            batch_size=frecency["batch_size"],
         ),
     )
 
@@ -81,6 +83,8 @@ async def root(request: Request, page: int = 0):
 async def dashboard(request: Request, page: int = 0):
     lks = db_utils.get_links(page)
     tags = db_utils.get_all_tags()
+    counts = db_utils.get_count()
+    frecency = db_utils.get_frecency_config()
     return templates.TemplateResponse(
         "dashboard.html",
         template_context(
@@ -89,6 +93,8 @@ async def dashboard(request: Request, page: int = 0):
             page=page,
             title=f"{config['app_name']} · Dashboard",
             all_tags=tags,
+            counts=counts,
+            frecency=frecency,
         ),
     )
 
@@ -97,13 +103,16 @@ async def dashboard(request: Request, page: int = 0):
 @app.get("/links/{page}", response_class=HTMLResponse)
 async def links(request: Request, page: int):
     lks = db_utils.get_links(page)
+    frecency = db_utils.get_frecency_config()
+    next_page = page + 1 if len(lks) == frecency["batch_size"] else None
     return templates.TemplateResponse(
         "links.html",
         template_context(
             request=request,
             links=lks,
             page=page,
-            next_page=page + 1,
+            next_page=next_page,
+            batch_size=frecency["batch_size"],
         ),
     )
 
@@ -112,13 +121,15 @@ async def links(request: Request, page: int):
 @app.get("/dashboard_items/{page}", response_class=HTMLResponse)
 async def links(request: Request, page: int):
     lks = db_utils.get_links(page)
+    frecency = db_utils.get_frecency_config()
+    next_page = page + 1 if len(lks) == frecency["batch_size"] else None
     return templates.TemplateResponse(
         "dashboard_items.html",
         template_context(
             request=request,
             links=lks,
             page=page,
-            next_page=page + 1,
+            next_page=next_page,
         ),
     )
 
@@ -127,9 +138,10 @@ async def links(request: Request, page: int):
 @app.get("/search", response_class=HTMLResponse)
 async def search(request: Request, text: str = "", view: str = "links"):
     query = text.strip()
+    frecency = db_utils.get_frecency_config()
     if not query:
         lks = db_utils.get_links(0)
-        next_page = 1 if len(lks) == 20 else None
+        next_page = 1 if len(lks) == frecency["batch_size"] else None
     else:
         lks = db_utils.search_links(query)
         next_page = None
@@ -143,6 +155,7 @@ async def search(request: Request, text: str = "", view: str = "links"):
             links=lks,
             search_term=query,
             next_page=next_page,
+            batch_size=frecency["batch_size"],
         ),
     )
 
@@ -185,9 +198,7 @@ async def add_link(
 @app.get("/redirect/{link_id}")
 async def redirect(background_tasks: BackgroundTasks, link_id):
     link = db_utils.get_link(link_id, True)[2]
-    background_tasks.add_task(
-        db_utils.decrement_rank, 1000
-    )  # TODO: Change max_rank to a config value in the database.
+    background_tasks.add_task(db_utils.decrement_rank)
     return RedirectResponse(link, status_code=302)
 
 
@@ -272,6 +283,58 @@ async def stats_page(request: Request):
     )
 
 
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    frecency = db_utils.get_frecency_config()
+    counts = db_utils.get_count()
+    saved = request.query_params.get("saved") == "1"
+    return templates.TemplateResponse(
+        "settings.html",
+        template_context(
+            request=request,
+            title=f"{config['app_name']} · Settings",
+            frecency=frecency,
+            counts=counts,
+            form_values=frecency,
+            errors={},
+            saved=saved,
+        ),
+    )
+
+
+@app.post("/settings", response_class=HTMLResponse)
+async def update_settings(
+    request: Request,
+    batch_size: int = Form(...),
+    max_rank: int = Form(...),
+):
+    errors = {}
+    if batch_size < 5 or batch_size > 200:
+        errors["batch_size"] = "Choose a batch size between 5 and 200."
+    if max_rank < 100 or max_rank > 50000:
+        errors["max_rank"] = "Choose a max rank between 100 and 50000."
+
+    if errors:
+        counts = db_utils.get_count()
+        frecency = db_utils.get_frecency_config()
+        return templates.TemplateResponse(
+            "settings.html",
+            template_context(
+                request=request,
+                title=f"{config['app_name']} · Settings",
+                frecency=frecency,
+                counts=counts,
+                form_values={"batch_size": batch_size, "max_rank": max_rank},
+                errors=errors,
+                saved=False,
+            ),
+            status_code=400,
+        )
+
+    db_utils.update_frecency_config(batch_size, max_rank)
+    return RedirectResponse(app.url_path_for("settings_page") + "?saved=1", status_code=303)
+
+
 # Tag management routes
 @app.get("/tags", response_class=HTMLResponse)
 async def tags_page(request: Request):
@@ -318,6 +381,7 @@ async def delete_tag_route(request: Request, tag_id: str):
 async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
     lks = db_utils.get_links_by_tag(tag_name, page)
     tags = db_utils.get_all_tags()
+    frecency = db_utils.get_frecency_config()
     return templates.TemplateResponse(
         "index.html",
         template_context(
@@ -327,6 +391,7 @@ async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
             title=f"{config['app_name']} · Tag: {tag_name}",
             filtered_tag=tag_name,
             all_tags=tags,
+            batch_size=frecency["batch_size"],
         ),
     )
 
@@ -334,14 +399,17 @@ async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
 @app.get("/tag/{tag_name}/links/{page}", response_class=HTMLResponse)
 async def tag_links_page(request: Request, tag_name: str, page: int):
     lks = db_utils.get_links_by_tag(tag_name, page)
+    frecency = db_utils.get_frecency_config()
+    next_page = page + 1 if len(lks) == frecency["batch_size"] else None
     return templates.TemplateResponse(
         "links.html",
         template_context(
             request=request,
             links=lks,
             page=page,
-            next_page=page + 1,
+            next_page=next_page,
             filtered_tag=tag_name,
+            batch_size=frecency["batch_size"],
         ),
     )
 

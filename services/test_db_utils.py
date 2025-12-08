@@ -19,3 +19,11 @@ def test_get_links():
     assert isinstance(db_utils.get_links()[0]["name"], str)
     assert isinstance(db_utils.get_links()[0]["rank"], float)
     assert isinstance(db_utils.get_links()[0]["accessed"], str)
+
+
+def test_get_frecency_config():
+    config = db_utils.get_frecency_config()
+    assert isinstance(config["batch_size"], int)
+    assert config["batch_size"] > 0
+    assert isinstance(config["max_rank"], int)
+    assert config["max_rank"] >= 100

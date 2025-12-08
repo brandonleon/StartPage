@@ -345,7 +345,7 @@ docker start startpage</code></pre>
         <h2 class="h3 mb-3">Configuration</h2>
 
         <h3 class="h5 mt-4 mb-2">Application Settings</h3>
-        <p>Settings are stored in the <code>config</code> table in the database:</p>
+        <p>Settings are editable via the <a href="/settings">/settings</a> screen (also linked in the app's navbar) and stored in the <code>config</code> table:</p>
 
         <table class="table table-dark">
             <thead>
@@ -359,14 +359,25 @@ docker start startpage</code></pre>
                 <tr>
                     <td>batch</td>
                     <td>20</td>
-                    <td>Number of links to load per page</td>
+                    <td>Number of links to load per page (pagination batch size)</td>
+                </tr>
+                <tr>
+                    <td>max_rank</td>
+                    <td>1000</td>
+                    <td>Total rank pool allowed before cleanup runs</td>
                 </tr>
             </tbody>
         </table>
 
         <h3 class="h5 mt-4 mb-2">Modifying Settings</h3>
+        <p>Prefer the UI whenever possible. For automation/headless scripts update the rows directly:</p>
         <pre class="bg-dark text-light p-3 rounded"><code># Change batch size to 50
-sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"</code></pre>
+sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"
+
+# Change the max rank pool
+sqlite3 data/links.db "INSERT INTO config (id, name, value)
+VALUES (lower(hex(randomblob(16))), 'max_rank', '2000')
+ON CONFLICT(name) DO UPDATE SET value = excluded.value;"</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Frecency Algorithm Parameters</h3>
         <p>The ranking formula is defined in <code>services/db_utils.py</code>:</p>
@@ -374,7 +385,7 @@ sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"</co
 
         <ul>
             <li><code>rank</code> increments by 1 on each click</li>
-            <li>Links with rank < 1 are automatically deleted when total ranks exceed 1000</li>
+            <li>Links with rank < 1 are automatically deleted when total ranks exceed <code>max_rank</code></li>
             <li>Remaining ranks are reduced by 1% during cleanup</li>
         </ul>
     </section>

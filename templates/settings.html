@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="latte">
+{% include '_header.html' %}
+
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="container app-shell">
+    <section class="hero glass-panel mb-4">
+        <p class="text-uppercase text-muted small mb-1">Operations</p>
+        <h1>Frecency tuning</h1>
+        <p>Adjust pagination and pruning thresholds without touching the database. These values affect how links load and when rank cleanup kicks in.</p>
+        <div class="alert alert-info mb-0" role="status">
+            Changes apply immediately &mdash; a server restart is <strong>not</strong> required. Refresh open dashboards to pull the new pagination size.
+        </div>
+        {% if saved %}
+        <div class="alert alert-success mt-3 mb-0" role="status">
+            Settings saved. Background pruning will honor the new thresholds on the next redirect.
+        </div>
+        {% endif %}
+    </section>
+
+    {% set values = form_values or frecency %}
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <form method="post" class="glass-panel" novalidate>
+                <div class="mb-4">
+                    <label for="batch_size" class="form-label fw-semibold">Links per page</label>
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control {% if errors.batch_size %}is-invalid{% endif %}"
+                               id="batch_size"
+                               name="batch_size"
+                               value="{{ values.batch_size }}"
+                               min="5"
+                               max="200"
+                               step="1"
+                               required>
+                        <span class="input-group-text">links</span>
+                    </div>
+                    {% if errors.batch_size %}
+                    <div class="invalid-feedback d-block">{{ errors.batch_size }}</div>
+                    {% endif %}
+                    <div class="form-text">Currently showing {{ counts.pages }} pages × {{ frecency.batch_size }} links ({{ counts.count }} total).</div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="max_rank" class="form-label fw-semibold">Max rank pool</label>
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control {% if errors.max_rank %}is-invalid{% endif %}"
+                               id="max_rank"
+                               name="max_rank"
+                               value="{{ values.max_rank }}"
+                               min="100"
+                               max="50000"
+                               step="50"
+                               required>
+                        <span class="input-group-text">points</span>
+                    </div>
+                    {% if errors.max_rank %}
+                    <div class="invalid-feedback d-block">{{ errors.max_rank }}</div>
+                    {% endif %}
+                    <div class="form-text">Ranks decay by 1% when the total exceeds this value; stale links under rank 1 are removed first.</div>
+                </div>
+
+                <div class="d-grid">
+                    <button class="btn btn-primary" type="submit">Save settings</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Current snapshot</p>
+                <h2 class="h5">At a glance</h2>
+                <ul class="list-unstyled mt-3 mb-0">
+                    <li class="mb-2"><strong>{{ counts.count }}</strong> active links in rotation</li>
+                    <li class="mb-2"><strong>{{ counts.pages }}</strong> pages rendered at {{ frecency.batch_size }} links each</li>
+                    <li class="mb-2">Cleanup triggers when the summed rank crosses <strong>{{ frecency.max_rank }}</strong></li>
+                    <li class="mb-0">See the <a href="/stats">statistics dashboard</a> for detailed rank metrics.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include '_footer.html' %}
+
+</body>
+
+</html>
