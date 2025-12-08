@@ -1,7 +1,8 @@
+{% set page_batch_size = batch_size | default(20) %}
 {% if links %}
     {% for link in links %}
         <li class="list-group-item flex-column align-items-start"
-            {% if next_page and loop.index == 20 %}
+            {% if next_page and loop.index == page_batch_size %}
                 {% if filtered_tag %}
                     hx-get="/tag/{{ filtered_tag }}/links/{{ next_page }}"
                 {% else %}
@@ -32,6 +33,12 @@
                     <div class="link-metadata text-md-end">
                         <span class="tag">Rank {{ "%.2f"|format(link.rank) }}</span>
                         <div class="small text-muted">Last used {{ link.accessed }}</div>
+                        {% if link.is_temporary %}
+                        <div class="temp-indicator mt-2">
+                            <span class="badge bg-warning text-dark">Temporary</span>
+                            <span>Expires in {{ link.expires_in }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

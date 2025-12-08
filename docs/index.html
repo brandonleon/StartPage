@@ -9,11 +9,19 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="../static/css/theme.css">
+    <style>
+        .docs-navbar {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+    </style>
     <title>StartPage - Administrator Guide</title>
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg sticky-top py-3">
+<nav class="navbar navbar-expand-lg sticky-top py-3 docs-navbar">
     <div class="container">
         <a class="navbar-brand fw-semibold" href="/">StartPage</a>
         <div class="collapse navbar-collapse">
@@ -59,10 +67,39 @@
             <li><strong>Frecency-based ranking</strong> - Links automatically prioritize based on usage patterns</li>
             <li><strong>Tag system</strong> - Organize links with custom tags (personal, work, projects, etc.)</li>
             <li><strong>Automatic pruning</strong> - Links with rank below 1 are automatically removed</li>
+            <li><strong>Temporary links</strong> - Flag short-lived bookmarks that expire automatically (default 24 hours)</li>
             <li><strong>SQLite storage</strong> - No external database required</li>
             <li><strong>FastAPI backend</strong> - High performance Python web framework</li>
             <li><strong>HTMX frontend</strong> - Dynamic updates without page reloads</li>
         </ul>
+    </section>
+
+    <section class="glass-panel mb-4" id="features">
+        <h2 class="h3 mb-3">Feature highlights</h2>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Guided tag entry</h3>
+                    <p class="text-muted">Any tag input rendered with <code>data-tag-input</code> automatically bootstraps the suggestion widget defined in <code>static/js/theme.js</code>. Pass the existing tag names through <code>data-tag-suggestions</code> (JSON string) and the UI handles filtering, deduping, and insertion. This now powers the Add/Edit forms and the bulk tag field on <code>/dashboard</code>.</p>
+                    <ul class="small">
+                        <li>Suggestions appear on focus and update as the user types.</li>
+                        <li>Comma-separated inputs are respected, so pasting multiple tags still works.</li>
+                        <li>Suggestions exclude already-added tags to prevent duplicates.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Tag rename &amp; merge</h3>
+                    <p class="text-muted">The <code>/tags</code> view now exposes an inline Rename control for every tag. Submitting the form posts to <code>/tag/:id/rename</code> and ultimately <code>db_utils.rename_tag</code>.</p>
+                    <ul class="small">
+                        <li>Incoming names are lowercased, whitespace becomes hyphens, non-alphanumeric characters are stripped, and values are trimmed server-side.</li>
+                        <li>If the destination name already exists, the links are merged into that tag and the original row is removed.</li>
+                        <li>Otherwise the row is renamed in place and counts are recalculated.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- Deployment Options -->
@@ -193,6 +230,27 @@ uv run mypy services</code></pre>
             <li><strong>Docker:</strong> <code>~/.config/startpage/links.db</code> (mounted from host)</li>
         </ul>
 
+        <h3 class="h5 mt-4 mb-2">Direct SQL maintenance</h3>
+        <p>For bulk edits or scripted maintenance you can work directly against the SQLite database.</p>
+        <ol>
+            <li class="mb-3">
+                <strong>Connect with sqlite3.</strong>
+                <pre class="bg-dark text-light p-3 rounded"><code>sqlite3 data/links.db
+.headers on
+.mode column
+SELECT id, name, rank FROM links ORDER BY rank DESC LIMIT 5;
+UPDATE links SET rank = 1.0 WHERE name = 'Docs';
+.quit</code></pre>
+            </li>
+            <li class="mb-3">
+                <strong>Understand the schema.</strong> Core tables are <code>links</code> (primary data), <code>tags</code>, and <code>tag_link_map</code>. Foreign keys keep orphaned rows from lingering, so deleting a tag automatically clears <code>tag_link_map</code> entries.
+            </li>
+            <li>
+                <strong>Automate with Python.</strong> Import <code>services.db_utils</code> in your own scripts to re-use helpers such as <code>save_link</code>, <code>get_links</code>, <code>rename_tag</code>, or <code>delete_link</code>.
+            </li>
+        </ol>
+        <p class="text-muted small mb-0">Remember: treat <code>data/links.db</code> as disposable state—commit schema changes and SQL scripts, not the database file.</p>
+
         <h3 class="h5 mt-4 mb-2">Schema Versions</h3>
         <table class="table table-dark">
             <thead>
@@ -206,7 +264,7 @@ uv run mypy services</code></pre>
                 <tr>
                     <td>1.x</td>
                     <td>db_v1.sql</td>
-                    <td>Basic links, rank, config, metadata tables</td>
+                    <td>Basic links, rank, metadata tables</td>
                 </tr>
                 <tr>
                     <td>2.x</td>
@@ -274,7 +332,7 @@ sqlite3 data/links.db < sql_scripts/v1_to_v2.sql
 
 # Verify
 sqlite3 data/links.db "SELECT name FROM sqlite_master WHERE type='table';"
-# Should show: links, config, metadata, tags, tag_link_map</code></pre>
+# Should show: links, metadata, tags, tag_link_map</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Rolling Back a Migration</h3>
         <p>If you need to roll back:</p>
@@ -345,7 +403,7 @@ docker start startpage</code></pre>
         <h2 class="h3 mb-3">Configuration</h2>
 
         <h3 class="h5 mt-4 mb-2">Application Settings</h3>
-        <p>Settings are stored in the <code>config</code> table in the database:</p>
+        <p>Settings are editable via the <a href="/settings">/settings</a> screen (also linked in the app's navbar) and persisted to <code>config.toml</code> at the project root. Set <code>STARTPAGE_CONFIG_PATH</code> to point at a different writable TOML file if you want to store settings elsewhere.</p>
 
         <table class="table table-dark">
             <thead>
@@ -357,16 +415,50 @@ docker start startpage</code></pre>
             </thead>
             <tbody>
                 <tr>
-                    <td>batch</td>
+                    <td><code>frecency.batch_size</code></td>
                     <td>20</td>
-                    <td>Number of links to load per page</td>
+                    <td>Number of links to load per page (pagination batch size)</td>
+                </tr>
+                <tr>
+                    <td><code>frecency.max_rank</code></td>
+                    <td>1000</td>
+                    <td>Total rank pool allowed before cleanup runs</td>
+                </tr>
+                <tr>
+                    <td><code>temp_links.enabled</code></td>
+                    <td>true</td>
+                    <td>Whether temporary links can be created</td>
+                </tr>
+                <tr>
+                    <td><code>temp_links.default_ttl_hours</code></td>
+                    <td>24</td>
+                    <td>Duration applied when the "Default" preset is selected</td>
+                </tr>
+                <tr>
+                    <td><code>temp_links.max_custom_hours</code></td>
+                    <td>720</td>
+                    <td>Upper bound for the "Custom" preset (in hours, up to 30 days)</td>
+                </tr>
+                <tr>
+                    <td><code>temp_links.purge_interval_seconds</code></td>
+                    <td>600</td>
+                    <td>Background cleanup cadence (also runs on every read)</td>
                 </tr>
             </tbody>
         </table>
 
         <h3 class="h5 mt-4 mb-2">Modifying Settings</h3>
-        <pre class="bg-dark text-light p-3 rounded"><code># Change batch size to 50
-sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"</code></pre>
+        <p>Prefer the UI whenever possible. For automation/headless workflows, edit <code>config.toml</code> with your favorite editor or provision a file before booting the app:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># config.toml
+[frecency]
+batch_size = 50
+max_rank = 2000
+
+[temp_links]
+enabled = true
+default_ttl_hours = 12
+max_custom_hours = 72
+purge_interval_seconds = 900</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Frecency Algorithm Parameters</h3>
         <p>The ranking formula is defined in <code>services/db_utils.py</code>:</p>
@@ -374,9 +466,13 @@ sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"</co
 
         <ul>
             <li><code>rank</code> increments by 1 on each click</li>
-            <li>Links with rank < 1 are automatically deleted when total ranks exceed 1000</li>
+            <li>Links with rank < 1 are automatically deleted when total ranks exceed <code>max_rank</code></li>
             <li>Remaining ranks are reduced by 1% during cleanup</li>
         </ul>
+
+        <h3 class="h5 mt-4 mb-2">Temporary Link Controls</h3>
+        <p>Mark a link as temporary from the add/edit form to set an automatic expiration (24 hours by default). Temporary links are highlighted in the UI and removed automatically when they expire.</p>
+        <p>Use <a href="/settings">/settings</a> to toggle the feature, change the default duration, cap the custom duration, and adjust the cleanup interval. Updates are persisted to <code>config.toml</code> and apply immediately.</p>
     </section>
 
     <!-- Troubleshooting -->
@@ -424,7 +520,7 @@ sqlite3 data/links.db "UPDATE config SET value = '50' WHERE name = 'batch';"</co
             <h3 class="h6">Performance issues</h3>
             <p><strong>Solutions:</strong></p>
             <ul>
-                <li>Reduce batch size in config</li>
+                <li>Reduce batch size via <code>/settings</code> or <code>config.toml</code></li>
                 <li>Clean up old links with low ranks</li>
                 <li>Vacuum database: <code>sqlite3 data/links.db "VACUUM;"</code></li>
                 <li>Increase Docker workers (if using Docker)</li>

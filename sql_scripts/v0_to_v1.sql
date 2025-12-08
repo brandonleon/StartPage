@@ -10,14 +10,6 @@ INSERT INTO links (id, name, url, rank, accessed) SELECT id, name, url, clicks, 
 DROP TABLE links_old;
 DROP TABLE clicks;
 
-CREATE TABLE IF NOT EXISTS config
-(id VARCHAR(36) not null primary key,
- name TEXT not null unique,
- value TEXT not null
-);
-
-INSERT INTO config (id, name, value) VALUES ('1', 'batch', '20');
-
 CREATE TABLE IF NOT EXISTS metadata
 (id VARCHAR(36) not null primary key,
  name TEXT not null unique,

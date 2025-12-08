@@ -6,7 +6,6 @@ The application uses SQLite with the following tables:
 erDiagram
     links }o--o{ tagmap : tags
     tagmap }o--o{ tags : tags
-    config
     metadata
 
     links {
@@ -15,11 +14,7 @@ erDiagram
         text url
         float rank
         accessed datetime
-    }
-
-    config {
-        text name
-        text value
+        expires_at datetime
     }
 
     metadata {
@@ -48,6 +43,7 @@ Stores all bookmarked links with frecency-based ranking.
 - `url` (TEXT): Unique URL
 - `rank` (FLOAT): Frecency score (incremented on each access)
 - `accessed` (INTEGER): Unix timestamp of last access
+- `expires_at` (INTEGER, nullable): Unix timestamp when the link should be automatically deleted
 
 ### tags
 Stores unique tag names.
@@ -61,13 +57,7 @@ Junction table for many-to-many relationship between links and tags.
 - `linkid` (VARCHAR): Foreign key to links.id
 - `tagid` (INTEGER): Foreign key to tags.id
 
-**Usage**: Tags allow organizing links into categories. Multiple tags can be assigned to a single link, and each tag can be applied to multiple links. Tags are automatically lowercased and deduplicated.
-
-### config
-Application configuration settings.
-
-- `name` (TEXT): Setting name (e.g., 'batch_size')
-- `value` (TEXT): Setting value
+**Usage**: Tags allow organizing links into categories. Multiple tags can be assigned to a single link, and each tag can be applied to multiple links. Tags are automatically lowercased, whitespace is replaced with hyphens, non-alphanumeric characters are removed, and duplicates are deduped.
 
 ### metadata
 Schema version tracking for migrations.
@@ -77,10 +67,14 @@ Schema version tracking for migrations.
 
 ## Schema Versioning
 
-Current version: **v1**
+Current version: **v2**
 
 Schema migrations are managed through:
 - `sql_scripts/db_v1.sql` - Full schema definition
 - `sql_scripts/v{old}_to_{new}.sql` - Migration scripts
 
 Version is checked on startup and migrations run automatically if needed.
+
+## Runtime Configuration
+
+Application settings (batch size, pruning thresholds, and temporary-link options) now live in `config.toml` at the project root. Deployments can override this path with the `STARTPAGE_CONFIG_PATH` environment variable. The FastAPI app loads the TOML file on boot, keeps the values in memory, and persists edits from the `/settings` screen back to disk so they apply immediately without touching SQLite.

@@ -3,16 +3,9 @@ CREATE TABLE IF NOT EXISTS links
  name TEXT not null unique,
  url TEXT not null unique,
  rank FLOAT,
- accessed integer
+ accessed integer,
+ expires_at integer
 );
-
-CREATE TABLE IF NOT EXISTS config
-(id VARCHAR(36) not null primary key,
- name TEXT not null unique,
- value TEXT not null
-);
-
-INSERT INTO config (id, name, value) VALUES ('1', 'batch', '20');
 
 CREATE TABLE IF NOT EXISTS metadata
 (id VARCHAR(36) not null primary key,
@@ -35,3 +28,5 @@ CREATE TABLE IF NOT EXISTS tag_link_map
  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
  FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_links_expires_at ON links(expires_at);

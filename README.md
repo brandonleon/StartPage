@@ -4,9 +4,11 @@ StartPage is a self-hosted, frecency-based link manager designed to serve as you
 
 - **Frecency-based ranking** - Links are automatically ordered by a combination of access frequency and recency
 - **Tag organization** - Add tags to links for better categorization and filtering
+- **Temporary links** - Mark short-lived URLs that automatically expire after the selected duration
 - **Dark/light theme** - Toggle between mocha (dark) and latte (light) themes
 - **Search functionality** - Real-time search with HTMX-powered dynamic loading
 - **Dashboard monitoring** - View link health and manage low-rank items before automatic cleanup
+- **Configurable frecency** - Tune pagination size and the rank decay threshold without editing the database
 - **Docker support** - Easy deployment with persistent storage
 - **FastAPI backend** - Modern async Python web framework with SQLite storage
 
@@ -63,9 +65,17 @@ The algorithm ensures that:
 
 ### Adding Links
 - Navigate to `/add` or click "Add" in the navbar
+- Start typing the link title/URL and the form will warn you if an existing entry already uses the same value
 - Enter a name and URL
 - Optionally add comma-separated tags (e.g., `work, documentation, python`)
 - Links are assigned the average rank on creation to naturally find their position
+
+### Temporary Links
+- Enable the **Temporary link** toggle on the add/edit form to store promo codes, onboarding docs, or staging URLs that should disappear automatically.
+- Choose a preset (Default, 24 hours, 7 days) or enter a custom duration in hours; admins decide what "Default" means in Settings.
+- Temporary links are highlighted on the home view and dashboard with a badge that shows how long remains before cleanup.
+- Expired links are removed from the database during reads and via a background cleanup loop, so stale entries never appear in responses.
+- Tune the feature under `/settings`: toggle temporary links on/off, change the default duration, set a maximum custom duration, and adjust the cleanup cadence. Values are stored in the root `config.toml` file so they take effect immediately without touching SQLite.
 
 ### Managing Tags
 - **Add tags**: Include them when creating/editing links in the tag field
@@ -78,6 +88,11 @@ The algorithm ensures that:
 - Click any link to visit it (automatically increments rank)
 - View `/dashboard` to see links grouped by health status
 - Check `/stats` for database statistics
+
+### Frecency Settings
+- Visit `/settings` (or the navbar link) to adjust the links-per-page batch size and the max rank pool used during pruning
+- Settings are validated server-side and apply immediately; refresh open tabs to pick up changes
+- Advanced deployments can point `STARTPAGE_CONFIG_PATH` at another writable TOML file if the default `config.toml` should live elsewhere.
 
 ### Theme Switching
 Click the theme toggle in the navbar to switch between dark (mocha) and light (latte) modes. Theme preference is stored in localStorage.

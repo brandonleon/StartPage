@@ -1,0 +1,25 @@
+{% if duplicate %}
+<div class="alert alert-warning mb-0">
+    <div class="d-flex flex-column gap-2">
+        <div>
+            <strong>This {{ duplicate_field }} is already in use.</strong>
+            <div class="small text-muted">Existing entry: <em>{{ duplicate.name }}</em></div>
+        </div>
+        <div class="d-flex flex-column gap-1 small">
+            <div><span class="fw-semibold">URL:</span> <a href="/redirect/{{ duplicate.id }}" target="_blank" rel="noreferrer">{{ duplicate.url }}</a></div>
+            <div><span class="fw-semibold">Last accessed:</span> {{ duplicate.accessed }}</div>
+            {% if duplicate.tags %}
+            <div><span class="fw-semibold">Tags:</span>
+                {% for tag in duplicate.tags %}
+                <a href="/tag/{{ tag.name }}" class="badge bg-light text-dark text-decoration-none me-1">{{ tag.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="/edit/{{ duplicate.id }}" target="_blank" rel="noreferrer">Edit existing link</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/redirect/{{ duplicate.id }}" target="_blank" rel="noreferrer">Open link</a>
+        </div>
+    </div>
+</div>
+{% endif %}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="latte">
+{% include '_header.html' %}
+
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="container app-shell">
+    <section class="hero glass-panel mb-4">
+        <p class="text-uppercase text-muted small mb-1">Operations</p>
+        <h1>Frecency tuning</h1>
+        <p>Adjust pagination and pruning thresholds without touching the database. These values affect how links load and when rank cleanup kicks in.</p>
+        <div class="alert alert-info mb-0" role="status">
+            Changes apply immediately &mdash; a server restart is <strong>not</strong> required. Refresh open dashboards to pull the new pagination size.
+        </div>
+        {% if saved %}
+        <div class="alert alert-success mt-3 mb-0" role="status">
+            Settings saved. Background pruning will honor the new thresholds on the next redirect.
+        </div>
+        {% endif %}
+    </section>
+
+    {% set values = form_values or frecency %}
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <form method="post" class="glass-panel" novalidate>
+                <div class="mb-4">
+                    <label for="batch_size" class="form-label fw-semibold">Links per page</label>
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control {% if errors.batch_size %}is-invalid{% endif %}"
+                               id="batch_size"
+                               name="batch_size"
+                               value="{{ values.batch_size }}"
+                               min="5"
+                               max="200"
+                               step="1"
+                               required>
+                        <span class="input-group-text">links</span>
+                    </div>
+                    {% if errors.batch_size %}
+                    <div class="invalid-feedback d-block">{{ errors.batch_size }}</div>
+                    {% endif %}
+                    <div class="form-text">Each infinite-scroll request loads {{ frecency.batch_size }} links. Adjust to show more or fewer links per batch.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="max_rank" class="form-label fw-semibold">Max rank pool</label>
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control {% if errors.max_rank %}is-invalid{% endif %}"
+                               id="max_rank"
+                               name="max_rank"
+                               value="{{ values.max_rank }}"
+                               min="100"
+                               max="50000"
+                               step="50"
+                               required>
+                        <span class="input-group-text">points</span>
+                    </div>
+                    {% if errors.max_rank %}
+                    <div class="invalid-feedback d-block">{{ errors.max_rank }}</div>
+                    {% endif %}
+                    <div class="form-text">Ranks decay by 1% when the total exceeds this value; stale links under rank 1 are removed first.</div>
+                </div>
+
+                <hr class="my-4">
+                <p class="text-uppercase text-muted small mb-2">Temporary links</p>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" role="switch" id="temp_links_enabled"
+                           name="temp_links_enabled"
+                           value="1"
+                           {% if values.temp_links_enabled %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold" for="temp_links_enabled">Enable automatic expiration</label>
+                    <div class="form-text">When enabled, links can be marked temporary on the add/edit screens and expire after the configured duration.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="temp_link_default_ttl_hours" class="form-label fw-semibold">Default duration</label>
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control {% if errors.temp_link_default_ttl_hours %}is-invalid{% endif %}"
+                               id="temp_link_default_ttl_hours"
+                               name="temp_link_default_ttl_hours"
+                               value="{{ values.temp_link_default_ttl_hours }}"
+                               min="1"
+                               max="720"
+                               step="1"
+                               required>
+                        <span class="input-group-text">hours</span>
+                    </div>
+                    {% if errors.temp_link_default_ttl_hours %}
+                    <div class="invalid-feedback d-block">{{ errors.temp_link_default_ttl_hours }}</div>
+                    {% endif %}
+                    <div class="form-text">Displayed as "Default" in the temporary link dropdown.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="temp_link_max_custom_hours" class="form-label fw-semibold">Max custom duration</label>
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control {% if errors.temp_link_max_custom_hours %}is-invalid{% endif %}"
+                               id="temp_link_max_custom_hours"
+                               name="temp_link_max_custom_hours"
+                               value="{{ values.temp_link_max_custom_hours }}"
+                               min="{{ values.temp_link_default_ttl_hours }}"
+                               max="720"
+                               step="1"
+                               required>
+                        <span class="input-group-text">hours</span>
+                    </div>
+                    {% if errors.temp_link_max_custom_hours %}
+                    <div class="invalid-feedback d-block">{{ errors.temp_link_max_custom_hours }}</div>
+                    {% endif %}
+                    <div class="form-text">Upper bound for the "Custom" option on the add/edit forms (max 720 hours / 30 days).</div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="temp_link_purge_interval_minutes" class="form-label fw-semibold">Cleanup interval</label>
+                    <div class="input-group">
+                        <input type="number"
+                               class="form-control {% if errors.temp_link_purge_interval_minutes %}is-invalid{% endif %}"
+                               id="temp_link_purge_interval_minutes"
+                               name="temp_link_purge_interval_minutes"
+                               value="{{ values.temp_link_purge_interval_minutes }}"
+                               min="1"
+                               max="1440"
+                               step="1"
+                               required>
+                        <span class="input-group-text">minutes</span>
+                    </div>
+                    {% if errors.temp_link_purge_interval_minutes %}
+                    <div class="invalid-feedback d-block">{{ errors.temp_link_purge_interval_minutes }}</div>
+                    {% endif %}
+                    <div class="form-text">Background cleanup loop frequency. Expired links are also purged during read operations.</div>
+                </div>
+
+                <div class="d-grid">
+                    <button class="btn btn-primary" type="submit">Save settings</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <div class="glass-panel h-100">
+                <p class="text-uppercase text-muted small mb-1">Current snapshot</p>
+                <h2 class="h5">At a glance</h2>
+                <ul class="list-unstyled mt-3 mb-0">
+                    <li class="mb-2">Current batch size: <strong>{{ frecency.batch_size }}</strong> links per load.</li>
+                    <li class="mb-2">Cleanup triggers when the summed rank crosses <strong>{{ frecency.max_rank }}</strong>.</li>
+                    <li class="mb-2">Temporary links default to <strong>{{ temp_link_default_hours }}</strong> hours and are cleaned every <strong>{{ temp_link_purge_interval_minutes }}</strong> minutes.</li>
+                    <li class="mb-0">See the <a href="/stats">statistics dashboard</a> for detailed rank metrics.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include '_footer.html' %}
+
+</body>
+
+</html>
