@@ -187,9 +187,10 @@ async def dashboard(request: Request, page: int = 0):
         try:
             created = int(request.query_params.get("created", 0))
             updated = int(request.query_params.get("updated", 0))
+            skipped = int(request.query_params.get("skipped", 0))
         except ValueError:
-            created = updated = 0
-        import_summary = {"created": created, "updated": updated}
+            created = updated = skipped = 0
+        import_summary = {"created": created, "updated": updated, "skipped": skipped}
     return templates.TemplateResponse(
         "dashboard.html",
         template_context(
@@ -235,7 +236,7 @@ async def import_links_endpoint(format_name: str = Form(..., alias="format"), up
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     redirect_url = (
         app.url_path_for("dashboard")
-        + f"?import=success&created={summary['created']}&updated={summary['updated']}"
+        + f"?import=success&created={summary['created']}&updated={summary['updated']}&skipped={summary['skipped']}"
     )
     return RedirectResponse(redirect_url, status_code=303)
 

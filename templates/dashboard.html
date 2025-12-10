@@ -20,7 +20,7 @@
         </div>
         {% if import_summary %}
         <div class="alert alert-success bg-transparent border border-success-subtle text-success-emphasis small mt-4" role="status">
-            Imported {{ import_summary.created }} new links and updated {{ import_summary.updated }} existing entries.
+            Imported {{ import_summary.created }} new links and updated {{ import_summary.updated }} existing entries.{% if import_summary.skipped > 0 %} Skipped {{ import_summary.skipped }} duplicate(s).{% endif %}
         </div>
         {% endif %}
         <div class="alert alert-warning bg-transparent border border-warning-subtle text-warning-emphasis small mt-4" role="status">

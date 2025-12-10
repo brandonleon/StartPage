@@ -244,6 +244,25 @@ def _sync_tags(cursor: sqlite3.Cursor, link_id: str, tags: List[str]) -> None:
         )
 
 
+def _recalculate_tag_counts(cursor: sqlite3.Cursor) -> None:
+    """
+    Recalculate all tag counts based on actual tag_link_map entries.
+    Ensures accuracy after bulk operations.
+    """
+    cursor.execute(
+        """
+        UPDATE tags
+        SET count = (
+            SELECT COUNT(*)
+            FROM tag_link_map
+            WHERE tag_id = tags.id
+        )
+        """
+    )
+    # Clean up orphaned tags with zero count
+    cursor.execute("DELETE FROM tags WHERE count = 0")
+
+
 def _upsert_link(cursor: sqlite3.Cursor, row: Dict[str, object]) -> Tuple[str, bool]:
     link_id = row["id"] or str(uuid4())
     cursor.execute("SELECT 1 FROM links WHERE id = :id", {"id": link_id})
@@ -290,6 +309,7 @@ def export_db_links(
 def import_db_links(data: bytes, format_name: str) -> Dict[str, int]:
     """
     Import links from a CSV or JSON payload following the export schema.
+    Skips rows that would violate unique constraints (duplicate name/URL).
     """
     if not data:
         raise ValueError("Import payload is empty.")
@@ -300,22 +320,27 @@ def import_db_links(data: bytes, format_name: str) -> Dict[str, int]:
     cursor = connection.cursor()
     created = 0
     updated = 0
+    skipped = 0
     try:
         for index, raw_row in enumerate(raw_rows, start=1):
-            prepared = _prepare_import_row(raw_row, index)
-            link_id, existed = _upsert_link(cursor, prepared)
-            _sync_tags(cursor, link_id, prepared["tags"])
-            if existed:
-                updated += 1
-            else:
-                created += 1
+            try:
+                prepared = _prepare_import_row(raw_row, index)
+                link_id, existed = _upsert_link(cursor, prepared)
+                _sync_tags(cursor, link_id, prepared["tags"])
+                if existed:
+                    updated += 1
+                else:
+                    created += 1
+            except sqlite3.IntegrityError:
+                # Skip rows that would violate unique constraints (duplicate name/URL)
+                skipped += 1
+                continue
+        # Recalculate all tag counts to ensure accuracy after bulk changes
+        _recalculate_tag_counts(cursor)
         connection.commit()
-    except sqlite3.IntegrityError as exc:
-        connection.rollback()
-        raise ValueError("Import failed due to a database constraint violation.") from exc
     finally:
         connection.close()
-    return {"created": created, "updated": updated}
+    return {"created": created, "updated": updated, "skipped": skipped}
 
 
 def write_export_file(format_name: str, destination: Path, batch_size: int = 512) -> Path:
