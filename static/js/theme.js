@@ -344,6 +344,39 @@ function initTemporaryLinkControls() {
     });
 }
 
+function initFilterResetBehavior() {
+    const resetEnabled = document.body.dataset.resetFilterOnClick === "true";
+    if (!resetEnabled) return;
+
+    const isFiltered = document.body.dataset.isFiltered === "true";
+    const searchInput = document.getElementById("search-input");
+    const links = document.querySelectorAll('a[href^="/redirect/"]');
+
+    links.forEach((anchor) => {
+        if (anchor.dataset.filterResetBound) return;
+        anchor.dataset.filterResetBound = "true";
+
+        anchor.addEventListener("click", () => {
+            const hasSearchActive = searchInput?.value.trim().length > 0;
+
+            // No filters active - nothing to do
+            if (!isFiltered && !hasSearchActive) return;
+
+            // Let target="_blank" open the link naturally
+            // Just reset the filter in this tab
+            if (hasSearchActive) {
+                searchInput.value = "";
+                const clearBtn = document.querySelector(".search-clear-btn");
+                if (clearBtn) clearBtn.style.display = "none";
+                htmx.trigger(searchInput.parentElement, "search");
+            } else if (isFiltered) {
+                // Delay navigation slightly to let the browser open the link first
+                setTimeout(() => window.location.href = "/", 100);
+            }
+        });
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSearchClear();
@@ -351,6 +384,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initTagSuggestions();
     initTagRenameControls();
     initTemporaryLinkControls();
+    initFilterResetBehavior();
 });
 
 document.body.addEventListener("htmx:afterSwap", () => {
@@ -358,4 +392,5 @@ document.body.addEventListener("htmx:afterSwap", () => {
     initTagSuggestions();
     initTagRenameControls();
     initTemporaryLinkControls();
+    initFilterResetBehavior();
 });

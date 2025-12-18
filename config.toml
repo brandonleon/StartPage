@@ -1,9 +1,9 @@
 [frecency]
-batch_size = 10
+batch_size = 20
 max_rank = 1000
 
 [temp_links]
-enabled = true
+enabled = false
 default_ttl_hours = 24
 max_custom_hours = 720
 purge_interval_seconds = 600

@@ -136,6 +136,7 @@ def _build_temp_link_form(
     }
 
 def template_context(**extra):
+    reset_filter = db_utils.get_reset_filter_on_click()
     ctx = {
         "version": str(config["app_version"]),
         "name": config["app_name"],
@@ -145,6 +146,7 @@ def template_context(**extra):
         "temp_link_presets": _temp_link_preset_options(),
         "temp_link_purge_interval_minutes": temp_link_settings["purge_interval_seconds"]
         // 60,
+        "reset_filter_on_click": reset_filter,
     }
     ctx.update(extra)
     return ctx
@@ -539,6 +541,7 @@ async def stats_page(request: Request):
 async def settings_page(request: Request):
     _refresh_temp_link_settings()
     frecency = db_utils.get_frecency_config()
+    reset_filter = db_utils.get_reset_filter_on_click()
     saved = request.query_params.get("saved") == "1"
     temp_config = temp_link_settings
     form_values = {
@@ -548,6 +551,7 @@ async def settings_page(request: Request):
         "temp_link_default_ttl_hours": temp_config["default_ttl_hours"],
         "temp_link_max_custom_hours": temp_config["max_custom_hours"],
         "temp_link_purge_interval_minutes": temp_config["purge_interval_seconds"] // 60,
+        "reset_filter_on_click": reset_filter,
     }
     return templates.TemplateResponse(
         "settings.html",
@@ -571,6 +575,7 @@ async def update_settings(
     temp_link_default_ttl_hours: int = Form(...),
     temp_link_max_custom_hours: int = Form(...),
     temp_link_purge_interval_minutes: int = Form(...),
+    reset_filter_on_click: Optional[str] = Form(None),
 ):
     errors = {}
     if batch_size < 5 or batch_size > 200:
@@ -593,6 +598,7 @@ async def update_settings(
             "temp_link_default_ttl_hours": temp_link_default_ttl_hours,
             "temp_link_max_custom_hours": temp_link_max_custom_hours,
             "temp_link_purge_interval_minutes": temp_link_purge_interval_minutes,
+            "reset_filter_on_click": reset_filter_on_click is not None,
         }
         return templates.TemplateResponse(
             "settings.html",
@@ -614,6 +620,7 @@ async def update_settings(
         temp_link_max_custom_hours,
         temp_link_purge_interval_minutes * 60,
     )
+    db_utils.set_reset_filter_on_click(reset_filter_on_click is not None)
     _refresh_temp_link_settings()
     return RedirectResponse(app.url_path_for("settings_page") + "?saved=1", status_code=303)
 

@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="latte">
 {% include '_header.html' %}
-<body>
+<body data-reset-filter-on-click="{{ 'true' if reset_filter_on_click else 'false' }}"
+      data-is-filtered="{{ 'true' if filtered_tag else 'false' }}">
 
 {% include 'navbar.html' %}
 

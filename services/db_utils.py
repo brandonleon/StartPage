@@ -371,6 +371,16 @@ def init_db(cur_version: str) -> None:
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
+
+    # Initialize reset_filter_on_click setting if not present
+    cur.execute(
+        """
+        INSERT OR IGNORE INTO metadata (id, name, value)
+        VALUES (:id, :name, :value)
+        """,
+        {"id": str(uuid4()), "name": "reset_filter_on_click", "value": "0"}
+    )
+    con.commit()
     con.close()
     app_config.ensure_config_file()
     _ensure_expires_column()
@@ -497,6 +507,40 @@ def update_frecency_config(batch_size: int, max_rank: int) -> Dict[str, int]:
     """Persist validated frecency settings and return the stored values."""
     updated = app_config.update_frecency_settings(batch_size, max_rank).frecency
     return {"batch_size": updated.batch_size, "max_rank": updated.max_rank}
+
+
+def get_reset_filter_on_click() -> bool:
+    """Get the reset_filter_on_click setting from metadata table."""
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    cur.execute(
+        "SELECT value FROM metadata WHERE name = :name",
+        {"name": "reset_filter_on_click"}
+    )
+    row = cur.fetchone()
+    con.close()
+    if row is None:
+        # Default to False if not set
+        return False
+    return row["value"] == "1"
+
+
+def set_reset_filter_on_click(enabled: bool) -> None:
+    """Set the reset_filter_on_click setting in metadata table."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    value = "1" if enabled else "0"
+    cur.execute(
+        """
+        INSERT INTO metadata (id, name, value)
+        VALUES (:id, :name, :value)
+        ON CONFLICT(name) DO UPDATE SET value = :value
+        """,
+        {"id": str(uuid4()), "name": "reset_filter_on_click", "value": value}
+    )
+    con.commit()
+    con.close()
 
 
 # Upgrade the database

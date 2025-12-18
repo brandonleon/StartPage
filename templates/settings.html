@@ -136,6 +136,17 @@
                     <div class="form-text">Background cleanup loop frequency. Expired links are also purged during read operations.</div>
                 </div>
 
+                <hr class="my-4">
+                <p class="text-uppercase text-muted small mb-2">User interface</p>
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" role="switch" id="reset_filter_on_click"
+                           name="reset_filter_on_click"
+                           value="1"
+                           {% if values.reset_filter_on_click %}checked{% endif %}>
+                    <label class="form-check-label fw-semibold" for="reset_filter_on_click">Reset filter when clicking links</label>
+                    <div class="form-text">When enabled, clicking a link from a filtered tag view opens the link in a new tab and returns you to the unfiltered home page. This prevents you from getting stuck in a filtered view after browsing.</div>
+                </div>
+
                 <div class="d-grid">
                     <button class="btn btn-primary" type="submit">Save settings</button>
                 </div>
@@ -149,6 +160,7 @@
                     <li class="mb-2">Current batch size: <strong>{{ frecency.batch_size }}</strong> links per load.</li>
                     <li class="mb-2">Cleanup triggers when the summed rank crosses <strong>{{ frecency.max_rank }}</strong>.</li>
                     <li class="mb-2">Temporary links default to <strong>{{ temp_link_default_hours }}</strong> hours and are cleaned every <strong>{{ temp_link_purge_interval_minutes }}</strong> minutes.</li>
+                    <li class="mb-2">Filter reset on link click: <strong>{{ "Enabled" if form_values.reset_filter_on_click else "Disabled" }}</strong>.</li>
                     <li class="mb-0">See the <a href="/stats">statistics dashboard</a> for detailed rank metrics.</li>
                 </ul>
             </div>
