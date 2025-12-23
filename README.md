@@ -1,35 +1,52 @@
-StartPage is a self-hosted, frecency-based link manager designed to serve as your browser's start page. Links are dynamically ranked using a weighted algorithm that combines frequency and recency of access.
+# StartPage
+
+StartPage is a self-hosted, frecency-based link manager designed to serve as
+your browser's start page. Links are dynamically ranked using a weighted
+algorithm that combines frequency and recency of access.
 
 ## Features
 
-- **Frecency-based ranking** - Links are automatically ordered by a combination of access frequency and recency
-- **Tag organization** - Add tags to links for better categorization and filtering
-- **Temporary links** - Mark short-lived URLs that automatically expire after the selected duration
+- **Frecency-based ranking** - Links are automatically ordered by a combination
+  of access frequency and recency
+- **Tag organization** - Add tags to links for better categorization and
+  filtering
+- **Temporary links** - Mark short-lived URLs that automatically expire after
+  the selected duration
 - **Dark/light theme** - Toggle between mocha (dark) and latte (light) themes
 - **Search functionality** - Real-time search with HTMX-powered dynamic loading
-- **Dashboard monitoring** - View link health and manage low-rank items before automatic cleanup
-- **Configurable frecency** - Tune pagination size and the rank decay threshold without editing the database
+- **Dashboard monitoring** - View link health and manage low-rank items before
+  automatic cleanup
+- **Configurable frecency** - Tune pagination size and the rank decay threshold
+  without editing the database
 - **Docker support** - Easy deployment with persistent storage
 - **FastAPI backend** - Modern async Python web framework with SQLite storage
 
 ### How Frecency Works
 
-Frecency is a portmanteau of 'recent' and 'frequency'. It's a weighted rank that depends on how often and how recently something occurred (term coined by Mozilla).
+Frecency is a portmanteau of 'recent' and 'frequency'. It's a weighted rank
+that depends on how often and how recently something occurred (term coined by
+Mozilla).
 
 The algorithm ensures that:
-- A link with low rank but recent access quickly rises above frequently-accessed but stale links
+
+- A link with low rank but recent access quickly rises above
+  frequently-accessed but stale links
 - Links below rank 1.0 become eligible for automatic cleanup
 - When total rank sum exceeds 1000, ranks are reduced by 1% to prevent overflow
+
 ## Installation
 
 ### Docker Installation (recommended)
+
 1. Clone this repository
+
    ```shell
    git clone https://github.com/yourusername/startpage.git
    cd startpage
    ```
 
 2. Build and run with Docker
+
    ```shell
    docker build . -t startpage
    docker run -d -p 8080:8080 --restart=always --name startpage \
@@ -37,17 +54,21 @@ The algorithm ensures that:
    ```
 
    Or use the Makefile:
+
    ```shell
    make dockerbuild
    ```
 
 ### Development Installation
+
 1. Install [uv](https://github.com/astral-sh/uv)
+
    ```shell
    pipx install uv
    ```
 
 2. Clone and install dependencies
+
    ```shell
    git clone https://github.com/yourusername/startpage.git
    cd startpage
@@ -55,6 +76,7 @@ The algorithm ensures that:
    ```
 
 3. Start the development server
+
    ```shell
    make develop
    # or
@@ -64,41 +86,71 @@ The algorithm ensures that:
 ## Usage
 
 ### Adding Links
+
 - Navigate to `/add` or click "Add" in the navbar
-- Start typing the link title/URL and the form will warn you if an existing entry already uses the same value
+- Start typing the link title/URL and the form will warn you if an existing
+  entry already uses the same value
 - Enter a name and URL
 - Optionally add comma-separated tags (e.g., `work, documentation, python`)
-- Links are assigned the average rank on creation to naturally find their position
+- Links are assigned the average rank on creation to naturally find their
+  position
 
 ### Temporary Links
-- Enable the **Temporary link** toggle on the add/edit form to store promo codes, onboarding docs, or staging URLs that should disappear automatically.
-- Choose a preset (Default, 24 hours, 7 days) or enter a custom duration in hours; admins decide what "Default" means in Settings.
-- Temporary links are highlighted on the home view and dashboard with a badge that shows how long remains before cleanup.
-- Expired links are removed from the database during reads and via a background cleanup loop, so stale entries never appear in responses.
-- Tune the feature under `/settings`: toggle temporary links on/off, change the default duration, set a maximum custom duration, and adjust the cleanup cadence. Values are stored in the root `config.toml` file so they take effect immediately without touching SQLite.
+
+- Enable the **Temporary link** toggle on the add/edit form to store promo
+  codes, onboarding docs, or staging URLs that should disappear automatically.
+- Choose a preset (Default, 24 hours, 7 days) or enter a custom duration in
+  hours; admins decide what "Default" means in Settings.
+- Temporary links are highlighted on the home view and dashboard with a badge
+  that shows how long remains before cleanup.
+- Expired links are removed from the database during reads and via a background
+  cleanup loop, so stale entries never appear in responses.
+- Tune the feature under `/settings`: toggle temporary links on/off, change the
+  default duration, set a maximum custom duration, and adjust the cleanup
+  cadence. Values are stored in the root `config.toml` file so they take effect
+  immediately without touching SQLite.
 
 ### Managing Tags
+
 - **Add tags**: Include them when creating/editing links in the tag field
 - **View all tags**: Visit `/tags` to see all tags and their usage counts
 - **Filter by tag**: Click a tag to view all associated links
 - **Remove tags**: Edit a link and click the × on any tag badge
 
 ### Search and Browse
+
 - Use the navbar search for instant filtering (HTMX-powered)
 - Click any link to visit it (automatically increments rank)
 - View `/dashboard` to see links grouped by health status
 - Check `/stats` for database statistics
 
 ### Import & Export
-- Use the **Need an offline backup?** callout on `/dashboard` to download CSV or JSON exports. Large libraries stream directly from SQLite, so leave the tab open until the browser finishes downloading.
-- The same card exposes an **Import links** form—upload a CSV/JSON file that follows the export schema (`id,name,url,rank,accessed,tags`). Provide an `id` to update an existing link or leave it blank to create a new entry; tags are rewritten to match the uploaded list.
-- Direct endpoints exist for automation: `GET /exports/csv` or `/exports/json` return attachments, and `POST /imports` accepts `multipart/form-data` with `format=csv|json` plus the uploaded file.
-- For headless deployments, run `uv run python -m services.io_utils csv -o backups/startpage-links.csv` (swap `csv` for `json`) to export locally, then `curl -F format=json -F upload=@startpage-links.json http://your-host/imports` to import without touching the UI.
+
+- Use the **Need an offline backup?** callout on `/dashboard` to download CSV
+  or JSON exports. Large libraries stream directly from SQLite, so leave the
+  tab open until the browser finishes downloading.
+- The same card exposes an **Import links** form—upload a CSV/JSON file that
+  follows the export schema (`id,name,url,rank,accessed,tags`). Provide an `id`
+  to update an existing link or leave it blank to create a new entry; tags are
+  rewritten to match the uploaded list.
+- Direct endpoints exist for automation: `GET /exports/csv` or `/exports/json`
+  return attachments, and `POST /imports` accepts `multipart/form-data` with
+  `format=csv|json` plus the uploaded file.
+- For headless deployments, run `uv run python -m services.io_utils csv -o
+  backups/startpage-links.csv` (swap `csv` for `json`) to export locally, then
+  `curl -F format=json -F upload=@startpage-links.json http://your-host/imports`
+  to import without touching the UI.
 
 ### Frecency Settings
-- Visit `/settings` (or the navbar link) to adjust the links-per-page batch size and the max rank pool used during pruning
-- Settings are validated server-side and apply immediately; refresh open tabs to pick up changes
-- Advanced deployments can point `STARTPAGE_CONFIG_PATH` at another writable TOML file if the default `config.toml` should live elsewhere.
+
+- Visit `/settings` (or the navbar link) to adjust the links-per-page batch
+  size and the max rank pool used during pruning
+- Settings are validated server-side and apply immediately; refresh open tabs
+  to pick up changes
+- Advanced deployments can point `STARTPAGE_CONFIG_PATH` at another writable
+  TOML file if the default `config.toml` should live elsewhere.
 
 ### Theme Switching
-Click the theme toggle in the navbar to switch between dark (mocha) and light (latte) modes. Theme preference is stored in localStorage.
+
+Click the theme toggle in the navbar to switch between dark (mocha) and light
+(latte) modes. Theme preference is stored in localStorage.
