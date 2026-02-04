@@ -2,11 +2,15 @@
 <html lang="en" data-theme="latte">
 {% include '_header.html' %}
 <body data-reset-filter-on-click="{{ 'true' if reset_filter_on_click else 'false' }}"
-      data-is-filtered="{{ 'true' if filtered_tag else 'false' }}">
+      data-is-filtered="{{ 'true' if filtered_tag else 'false' }}"
+      {% if embed_mode %}class="embed-mode"{% endif %}>
 
+{% if not embed_mode %}
 {% include 'navbar.html' %}
+{% endif %}
 
-<div class="container app-shell">
+<div class="container {% if embed_mode %}p-2{% else %}app-shell{% endif %}">
+    {% if not embed_mode %}
     <section class="hero glass-panel mb-4">
         <p class="text-uppercase text-muted small mb-1">Welcome back to {{ name }}</p>
         <h1>Your curated launchpad.</h1>
@@ -16,14 +20,19 @@
             <span class="stat-pill">Version {{ version }}</span>
         </div>
     </section>
+    {% endif %}
 
-    <section class="glass-panel">
+    <section class="{% if not embed_mode %}glass-panel{% endif %}">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
             <div>
-                <h2 class="h4 mb-1">{% if filtered_tag %}Links tagged "{{ filtered_tag }}"{% else %}Pinned Links{% endif %}</h2>
+                <h2 class="{% if embed_mode %}h6{% else %}h4{% endif %} mb-1">{% if filtered_tag %}Links tagged "{{ filtered_tag }}"{% else %}Pinned Links{% endif %}</h2>
+                {% if not embed_mode %}
                 <p class="text-muted mb-0">Sorted by how frequently you access them.</p>
+                {% endif %}
             </div>
+            {% if not embed_mode %}
             <a class="btn btn-outline-secondary" href="/add">Add link</a>
+            {% endif %}
         </div>
         {% if all_tags %}
         <div class="mb-3">
@@ -63,7 +72,9 @@
                                    data-bs-placement="left"
                                    data-bs-delay="200"
                                    title="{{ link.url|truncate(255) }}">{{ link.name }}</a>
+                                {% if not embed_mode %}
                                 <div class="text-muted small link-url">{{ link.url }}</div>
+                                {% endif %}
                                 {% if link.tags %}
                                 <div class="mt-2">
                                     {% for tag in link.tags %}
@@ -72,6 +83,7 @@
                                 </div>
                                 {% endif %}
                             </div>
+                            {% if not embed_mode %}
                             <div class="link-metadata text-md-end">
                                 <span class="tag">Rank {{ "%.2f"|format(link.rank) }}</span>
                                 <div class="small text-muted">Last used {{ link.accessed }}</div>
@@ -82,6 +94,7 @@
                                 </div>
                                 {% endif %}
                             </div>
+                            {% endif %}
                         </div>
                     </div>
                 </li>
@@ -90,7 +103,9 @@
     </section>
 </div>
 
+{% if not embed_mode %}
 {% include '_footer.html' %}
+{% endif %}
 
 </body>
 </html>

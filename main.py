@@ -135,8 +135,15 @@ def _build_temp_link_form(
         "show_custom": show_custom,
     }
 
-def template_context(**extra):
+def template_context(request: Optional[Request] = None, **extra):
     reset_filter = db_utils.get_reset_filter_on_click()
+
+    # Check for embed mode from query params
+    embed_mode = False
+    if request:
+        embed_param = request.query_params.get("embed", "").lower()
+        embed_mode = embed_param in ("true", "1", "yes")
+
     ctx = {
         "version": str(config["app_version"]),
         "name": config["app_name"],
@@ -147,6 +154,7 @@ def template_context(**extra):
         "temp_link_purge_interval_minutes": temp_link_settings["purge_interval_seconds"]
         // 60,
         "reset_filter_on_click": reset_filter,
+        "embed_mode": embed_mode,
     }
     ctx.update(extra)
     return ctx
@@ -167,6 +175,7 @@ async def root(request: Request, page: int = 0):
     return templates.TemplateResponse(
         "index.html",
         template_context(
+            request,
             request=request,
             links=lks,
             page=page,
@@ -699,6 +708,7 @@ async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
     return templates.TemplateResponse(
         "index.html",
         template_context(
+            request,
             request=request,
             links=lks,
             page=page,

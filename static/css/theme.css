@@ -499,3 +499,37 @@ label.required::after {
     content: " *";
     color: var(--ctp-danger);
 }
+
+/* Embed mode styles for iframe/dashboard embedding */
+body.embed-mode {
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+body.embed-mode .container {
+    max-width: 100%;
+    margin: 0;
+    padding: 0.5rem;
+}
+
+body.embed-mode .list-group-item {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    border-left: none;
+    border-right: none;
+}
+
+body.embed-mode .list-group-item:first-child {
+    border-top: none;
+}
+
+body.embed-mode .badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+}
+
+body.embed-mode h2 {
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+}
