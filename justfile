@@ -4,6 +4,24 @@ run:
 bump level:
   uv version --bump {{level}}
 
+# Build and replace running Docker container
+docker-replace:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  echo "🛑 Stopping and removing existing container..."
+  docker stop startpage 2>/dev/null || true
+  docker rm startpage 2>/dev/null || true
+
+  echo "🔨 Building new image..."
+  docker build . -t startpage
+
+  echo "🚀 Starting new container..."
+  docker run -d -p 8080:8080 --restart=always --name startpage -v ~/.config/startpage:/usr/startpage/data startpage
+
+  echo "✅ Container replaced successfully!"
+  docker ps --filter name=startpage
+
 # Release workflow: commit, tag, and push
 release message:
   #!/usr/bin/env bash

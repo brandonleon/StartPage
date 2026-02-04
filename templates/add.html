@@ -40,7 +40,10 @@
                         {% endif %}
                         <div class="small text-muted mt-1">
                             <span class="htmx-indicator" id="duplicate-url-indicator" style="display:none;">Checking duplicates…</span>
-                            <span class="htmx-indicator" id="title-fetch-indicator" style="display:none;">Fetching page title…</span>
+                            <span class="htmx-indicator" id="title-fetch-indicator" style="display:none;">
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                Fetching page title…
+                            </span>
                         </div>
                         <div class="mt-2" id="duplicate-url-warning"></div>
                         <!-- Hidden div to trigger title fetch via HTMX -->
@@ -151,20 +154,46 @@
                 </form>
 
                 <script>
-                    // HTMX handler to populate link_name from fetched title
-                    document.body.addEventListener('htmx:afterRequest', function(evt) {
-                        // Check if this is our title fetch request
-                        const path = evt.detail.pathInfo?.requestPath;
-                        if (path && path.startsWith('/fetch-title')) {
-                            const linkNameInput = document.getElementById('link_name');
-                            const response = evt.detail.xhr.responseText;
+                    (function() {
+                        const urlInput = document.getElementById('link_url');
+                        const nameInput = document.getElementById('link_name');
+                        const indicator = document.getElementById('title-fetch-indicator');
 
-                            // Only set the value if we got a title back and the field is currently empty
-                            if (linkNameInput && response && response.trim() && !linkNameInput.value.trim()) {
-                                linkNameInput.value = response.trim();
-                            }
+                        // Show indicator immediately when user types in URL field
+                        if (urlInput && nameInput && indicator) {
+                            urlInput.addEventListener('input', function() {
+                                const url = urlInput.value.trim();
+                                const name = nameInput.value.trim();
+
+                                // Show indicator if URL has content and name is empty
+                                if (url && !name) {
+                                    indicator.style.display = 'inline';
+                                } else {
+                                    indicator.style.display = 'none';
+                                }
+                            });
                         }
-                    });
+
+                        // HTMX handler to populate link_name from fetched title
+                        document.body.addEventListener('htmx:afterRequest', function(evt) {
+                            // Check if this is our title fetch request
+                            const path = evt.detail.pathInfo?.requestPath;
+                            if (path && path.startsWith('/fetch-title')) {
+                                const linkNameInput = document.getElementById('link_name');
+                                const response = evt.detail.xhr.responseText;
+
+                                // Hide indicator after request completes
+                                if (indicator) {
+                                    indicator.style.display = 'none';
+                                }
+
+                                // Only set the value if we got a title back and the field is currently empty
+                                if (linkNameInput && response && response.trim() && !linkNameInput.value.trim()) {
+                                    linkNameInput.value = response.trim();
+                                }
+                            }
+                        });
+                    })();
                 </script>
             </section>
         </div>
