@@ -2,16 +2,52 @@ import argparse
 import csv
 import io
 import json
+import re
 import sqlite3
 from pathlib import Path
 from time import time
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 from uuid import uuid4
 
+import httpx
+
 import services.db_utils as db_utils
 
 EXPORT_FIELDS = ("id", "name", "url", "rank", "accessed", "tags")
 VALID_FORMATS = {"csv", "json"}
+
+
+def fetch_url_title(url: str, timeout: int = 10) -> Optional[str]:
+    """
+    Fetch a URL and extract its title from the HTML.
+    Returns None if the request fails or no title is found.
+
+    Args:
+        url: The URL to fetch
+        timeout: Request timeout in seconds (default: 10)
+
+    Returns:
+        The page title as a string, or None if extraction fails
+    """
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            response = client.get(url)
+            response.raise_for_status()
+
+            # Try to extract title from HTML using regex
+            content = response.text
+            title_match = re.search(r'<title[^>]*>(.*?)</title>', content, re.IGNORECASE | re.DOTALL)
+
+            if title_match:
+                title = title_match.group(1).strip()
+                # Clean up the title - decode HTML entities and normalize whitespace
+                title = re.sub(r'\s+', ' ', title)
+                return title if title else None
+
+            return None
+    except (httpx.HTTPError, httpx.TimeoutException, Exception):
+        # Return None for any fetch/parse errors
+        return None
 
 
 def _normalize_format(format_name: str) -> str:

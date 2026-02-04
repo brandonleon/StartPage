@@ -333,6 +333,24 @@ async def add_display(request: Request):
     )
 
 
+@app.get("/fetch-title", response_class=HTMLResponse)
+async def fetch_title(link_url: Optional[str] = None, link_name: Optional[str] = None):
+    """Fetch page title from URL if link_name is empty."""
+    url = (link_url or "").strip()
+    name = (link_name or "").strip()
+
+    # Only fetch if URL is provided and name is empty
+    if not url or name:
+        return HTMLResponse("")
+
+    # Fetch the title
+    fetched_title = io_utils.fetch_url_title(url)
+    if fetched_title:
+        return HTMLResponse(fetched_title)
+
+    return HTMLResponse("")
+
+
 @app.get("/duplicates/check", response_class=HTMLResponse)
 async def check_duplicate_link(
     request: Request,
