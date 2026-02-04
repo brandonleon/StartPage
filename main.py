@@ -140,11 +140,24 @@ def template_context(request: Optional[Request] = None, **extra):
 
     # Check for embed mode from query params
     embed_mode = False
+    theme = "system"  # Default to system preference
+
     if request:
         embed_param = request.query_params.get("embed", "").lower()
         embed_mode = embed_param in ("true", "1", "yes")
 
+        # Check for theme parameter
+        theme_param = request.query_params.get("theme", "").lower()
+        if theme_param == "light":
+            theme = "latte"
+        elif theme_param == "dark":
+            theme = "mocha"
+        elif theme_param == "system":
+            theme = "system"
+        # If theme_param is empty or invalid, keep default "system"
+
     ctx = {
+        "request": request,
         "version": str(config["app_version"]),
         "name": config["app_name"],
         "temp_links_enabled": temp_link_settings["enabled"],
@@ -155,6 +168,7 @@ def template_context(request: Optional[Request] = None, **extra):
         // 60,
         "reset_filter_on_click": reset_filter,
         "embed_mode": embed_mode,
+        "theme": theme,
     }
     ctx.update(extra)
     return ctx
@@ -175,7 +189,6 @@ async def root(request: Request, page: int = 0):
     return templates.TemplateResponse(
         "index.html",
         template_context(
-            request,
             request=request,
             links=lks,
             page=page,
@@ -708,7 +721,6 @@ async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
     return templates.TemplateResponse(
         "index.html",
         template_context(
-            request,
             request=request,
             links=lks,
             page=page,

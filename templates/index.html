@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="latte">
+<html lang="en" data-theme="{{ theme | default('system') }}">
 {% include '_header.html' %}
 <body data-reset-filter-on-click="{{ 'true' if reset_filter_on_click else 'false' }}"
       data-is-filtered="{{ 'true' if filtered_tag else 'false' }}"
