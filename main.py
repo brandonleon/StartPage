@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from packaging.version import parse
 from starlette.responses import FileResponse
@@ -582,6 +582,108 @@ async def stats_page(request: Request):
             title=f"{config['app_name']} · Statistics",
             stats=stats,
         ),
+    )
+
+
+@app.get("/metrics")
+async def metrics():
+    """
+    Prometheus-compatible metrics endpoint exposing link statistics.
+    """
+    stats = db_utils.get_stats()
+    tags = db_utils.get_all_tags()
+    counts = db_utils.get_count()
+
+    # Get links at risk (rank < 2.5) and prune soon (rank < 1.1)
+    con = sqlite3.connect(db_utils.db_path)
+    cur = con.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM links WHERE rank < 1.1")
+    prune_soon_count = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM links WHERE rank >= 1.1 AND rank < 2.5")
+    watchlist_count = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM links WHERE expires_at IS NOT NULL")
+    temp_links_count = cur.fetchone()[0]
+
+    con.close()
+
+    # Build Prometheus-formatted metrics
+    metrics_output = []
+
+    # Total links
+    metrics_output.append("# HELP startpage_links_total Total number of saved links")
+    metrics_output.append("# TYPE startpage_links_total gauge")
+    metrics_output.append(f"startpage_links_total {stats['rank_stats']['total_links']}")
+    metrics_output.append("")
+
+    # Temporary links
+    metrics_output.append("# HELP startpage_links_temporary Number of temporary links")
+    metrics_output.append("# TYPE startpage_links_temporary gauge")
+    metrics_output.append(f"startpage_links_temporary {temp_links_count}")
+    metrics_output.append("")
+
+    # Permanent links
+    metrics_output.append("# HELP startpage_links_permanent Number of permanent links")
+    metrics_output.append("# TYPE startpage_links_permanent gauge")
+    metrics_output.append(f"startpage_links_permanent {stats['rank_stats']['total_links'] - temp_links_count}")
+    metrics_output.append("")
+
+    # Total rank sum (total clicks/accesses)
+    metrics_output.append("# HELP startpage_rank_sum_total Sum of all link ranks (approximates total clicks)")
+    metrics_output.append("# TYPE startpage_rank_sum_total gauge")
+    metrics_output.append(f"startpage_rank_sum_total {stats['rank_stats']['sum']:.2f}")
+    metrics_output.append("")
+
+    # Average rank
+    metrics_output.append("# HELP startpage_rank_average Average rank across all links")
+    metrics_output.append("# TYPE startpage_rank_average gauge")
+    metrics_output.append(f"startpage_rank_average {stats['rank_stats']['avg']:.2f}")
+    metrics_output.append("")
+
+    # Min rank
+    metrics_output.append("# HELP startpage_rank_min Minimum rank value")
+    metrics_output.append("# TYPE startpage_rank_min gauge")
+    metrics_output.append(f"startpage_rank_min {stats['rank_stats']['min']:.2f}")
+    metrics_output.append("")
+
+    # Max rank
+    metrics_output.append("# HELP startpage_rank_max Maximum rank value")
+    metrics_output.append("# TYPE startpage_rank_max gauge")
+    metrics_output.append(f"startpage_rank_max {stats['rank_stats']['max']:.2f}")
+    metrics_output.append("")
+
+    # Links at risk (prune soon)
+    metrics_output.append("# HELP startpage_links_prune_soon Number of links at risk of being pruned (rank < 1.1)")
+    metrics_output.append("# TYPE startpage_links_prune_soon gauge")
+    metrics_output.append(f"startpage_links_prune_soon {prune_soon_count}")
+    metrics_output.append("")
+
+    # Links on watchlist
+    metrics_output.append("# HELP startpage_links_watchlist Number of links on watchlist (1.1 <= rank < 2.5)")
+    metrics_output.append("# TYPE startpage_links_watchlist gauge")
+    metrics_output.append(f"startpage_links_watchlist {watchlist_count}")
+    metrics_output.append("")
+
+    # Links by tag
+    metrics_output.append("# HELP startpage_links_by_tag Number of links per tag")
+    metrics_output.append("# TYPE startpage_links_by_tag gauge")
+    for tag in tags:
+        # Escape tag name for Prometheus label (replace quotes and backslashes)
+        safe_tag_name = tag["name"].replace("\\", "\\\\").replace('"', '\\"')
+        metrics_output.append(f'startpage_links_by_tag{{tag="{safe_tag_name}"}} {tag["count"]}')
+    metrics_output.append("")
+
+    # Total tags
+    metrics_output.append("# HELP startpage_tags_total Total number of unique tags")
+    metrics_output.append("# TYPE startpage_tags_total gauge")
+    metrics_output.append(f"startpage_tags_total {len(tags)}")
+    metrics_output.append("")
+
+    return Response(
+        content="\n".join(metrics_output),
+        media_type="text/plain; version=0.0.4"
     )
 
 
