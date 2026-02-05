@@ -9,12 +9,12 @@ docker-replace:
   #!/usr/bin/env bash
   set -euo pipefail
 
+  echo "🔨 Building new image..."
+  docker build . -t startpage
+
   echo "🛑 Stopping and removing existing container..."
   docker stop startpage 2>/dev/null || true
   docker rm startpage 2>/dev/null || true
-
-  echo "🔨 Building new image..."
-  docker build . -t startpage
 
   echo "🚀 Starting new container..."
   docker run -d -p 8080:8080 --restart=always --name startpage -v ~/.config/startpage:/usr/startpage/data startpage
