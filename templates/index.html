@@ -34,7 +34,7 @@
             <a class="btn btn-outline-secondary" href="/add">Add link</a>
             {% endif %}
         </div>
-        {% if all_tags %}
+        {% if all_tags and not embed_mode %}
         <div class="mb-3">
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="text-muted small">Filter by tag:</span>
@@ -55,9 +55,9 @@
                 <li class="list-group-item flex-column align-items-start"
                     {% if loop.index == page_batch_size %}
                         {% if filtered_tag %}
-                            hx-get="/tag/{{ filtered_tag }}/links/{{ page + 1 }}"
+                            hx-get="/tag/{{ filtered_tag }}/links/{{ page + 1 }}{% if embed_mode %}?embed=true{% endif %}"
                         {% else %}
-                            hx-get="/links/{{ page + 1 }}"
+                            hx-get="/links/{{ page + 1 }}{% if embed_mode %}?embed=true{% endif %}"
                         {% endif %}
                         hx-trigger="revealed"
                         hx-swap="afterend"
@@ -78,7 +78,7 @@
                                 {% if link.tags %}
                                 <div class="mt-2">
                                     {% for tag in link.tags %}
-                                    <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                                    <a href="/tag/{{ tag.name }}{% if embed_mode %}?embed=true{% endif %}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
