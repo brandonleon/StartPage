@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="latte">
+<html lang="en" data-theme="{{ theme | default('system') }}">
 {% include '_header.html' %}
 <body>
 
@@ -22,28 +22,6 @@
                 {% set errors = errors or {} %}
                 <form action="/add" method="post" novalidate>
                     <div class="mb-3">
-                        <label for="link_name" class="form-label required">Link name</label>
-                        <input type="text"
-                               class="form-control {% if errors.link_name %}is-invalid{% endif %}"
-                               id="link_name"
-                               name="link_name"
-                               placeholder="Daily dashboard"
-                               value="{{ values.link_name }}"
-                               hx-get="/duplicates/check?field=name"
-                               hx-trigger="keyup changed delay:500ms, search"
-                               hx-target="#duplicate-name-warning"
-                               hx-indicator="#duplicate-name-indicator"
-                               autocomplete="off"
-                               required>
-                        {% if errors.link_name %}
-                        <div class="invalid-feedback d-block">{{ errors.link_name }}</div>
-                        {% endif %}
-                        <div class="small text-muted mt-1">
-                            <span class="htmx-indicator" id="duplicate-name-indicator" style="display:none;">Checking duplicates…</span>
-                        </div>
-                        <div class="mt-2" id="duplicate-name-warning"></div>
-                    </div>
-                    <div class="mb-3">
                         <label for="link_url" class="form-label required">URL</label>
                         <input type="url"
                                class="form-control {% if errors.link_url %}is-invalid{% endif %}"
@@ -62,8 +40,43 @@
                         {% endif %}
                         <div class="small text-muted mt-1">
                             <span class="htmx-indicator" id="duplicate-url-indicator" style="display:none;">Checking duplicates…</span>
+                            <span class="htmx-indicator" id="title-fetch-indicator" style="display:none;">
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                Fetching page title…
+                            </span>
                         </div>
                         <div class="mt-2" id="duplicate-url-warning"></div>
+                        <!-- Hidden div to trigger title fetch via HTMX -->
+                        <div hx-get="/fetch-title"
+                             hx-trigger="input changed delay:800ms from:#link_url"
+                             hx-include="#link_url,#link_name"
+                             hx-target="#link_name"
+                             hx-swap="none"
+                             hx-indicator="#title-fetch-indicator"
+                             style="display:none;"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="link_name" class="form-label required">Link name</label>
+                        <input type="text"
+                               class="form-control {% if errors.link_name %}is-invalid{% endif %}"
+                               id="link_name"
+                               name="link_name"
+                               placeholder="Daily dashboard"
+                               value="{{ values.link_name }}"
+                               hx-get="/duplicates/check?field=name"
+                               hx-trigger="keyup changed delay:500ms, search"
+                               hx-target="#duplicate-name-warning"
+                               hx-indicator="#duplicate-name-indicator"
+                               autocomplete="off"
+                               required>
+                        <div class="form-text">Leave blank to automatically use the page title from the URL.</div>
+                        {% if errors.link_name %}
+                        <div class="invalid-feedback d-block">{{ errors.link_name }}</div>
+                        {% endif %}
+                        <div class="small text-muted mt-1">
+                            <span class="htmx-indicator" id="duplicate-name-indicator" style="display:none;">Checking duplicates…</span>
+                        </div>
+                        <div class="mt-2" id="duplicate-name-warning"></div>
                     </div>
                     <div class="mb-3">
                         <label for="tag_names" class="form-label">Tags (optional)</label>
@@ -139,6 +152,49 @@
                     </div>
                     <button class="btn btn-primary w-100" type="submit">Save link</button>
                 </form>
+
+                <script>
+                    (function() {
+                        const urlInput = document.getElementById('link_url');
+                        const nameInput = document.getElementById('link_name');
+                        const indicator = document.getElementById('title-fetch-indicator');
+
+                        // Show indicator immediately when user types in URL field
+                        if (urlInput && nameInput && indicator) {
+                            urlInput.addEventListener('input', function() {
+                                const url = urlInput.value.trim();
+                                const name = nameInput.value.trim();
+
+                                // Show indicator if URL has content and name is empty
+                                if (url && !name) {
+                                    indicator.style.display = 'inline';
+                                } else {
+                                    indicator.style.display = 'none';
+                                }
+                            });
+                        }
+
+                        // HTMX handler to populate link_name from fetched title
+                        document.body.addEventListener('htmx:afterRequest', function(evt) {
+                            // Check if this is our title fetch request
+                            const path = evt.detail.pathInfo?.requestPath;
+                            if (path && path.startsWith('/fetch-title')) {
+                                const linkNameInput = document.getElementById('link_name');
+                                const response = evt.detail.xhr.responseText;
+
+                                // Hide indicator after request completes
+                                if (indicator) {
+                                    indicator.style.display = 'none';
+                                }
+
+                                // Only set the value if we got a title back and the field is currently empty
+                                if (linkNameInput && response && response.trim() && !linkNameInput.value.trim()) {
+                                    linkNameInput.value = response.trim();
+                                }
+                            }
+                        });
+                    })();
+                </script>
             </section>
         </div>
     </div>

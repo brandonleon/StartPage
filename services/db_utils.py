@@ -18,6 +18,18 @@ TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
 
 
+def _get_connection() -> sqlite3.Connection:
+    """
+    Get a database connection with foreign keys enabled.
+
+    Returns:
+        sqlite3.Connection: Database connection with foreign keys enabled.
+    """
+    con = sqlite3.connect(db_path)
+    con.execute("PRAGMA foreign_keys = ON")
+    return con
+
+
 class DuplicateLinkError(Exception):
     """Raised when inserting or updating a link violates the unique name/url constraint."""
 
@@ -59,6 +71,40 @@ def _ensure_expires_column() -> None:
         con.close()
 
 
+def _cleanup_orphaned_tags() -> int:
+    """
+    Update tag counts and delete tags with zero links.
+
+    This should be called after any operation that deletes links to ensure
+    tag counts remain accurate and orphaned tags are removed.
+
+    Returns:
+        int: The number of tags deleted.
+    """
+    con = _get_connection()
+    cur = con.cursor()
+
+    # Update all tag counts based on actual link mappings
+    cur.execute(
+        """
+        UPDATE tags
+        SET count = (
+            SELECT COUNT(*)
+            FROM tag_link_map
+            WHERE tag_link_map.tag_id = tags.id
+        )
+        """
+    )
+
+    # Delete tags with zero count
+    cur.execute("DELETE FROM tags WHERE count = 0")
+    deleted = cur.rowcount or 0
+
+    con.commit()
+    con.close()
+    return deleted
+
+
 def purge_expired_links(now: Optional[int] = None) -> int:
     """
     Delete links whose expires_at timestamp is in the past.
@@ -66,7 +112,7 @@ def purge_expired_links(now: Optional[int] = None) -> int:
     Returns:
         int: The number of removed rows.
     """
-    con = sqlite3.connect(db_path)
+    con = _get_connection()
     cur = con.cursor()
     if now is None:
         now = int(time())
@@ -77,6 +123,11 @@ def purge_expired_links(now: Optional[int] = None) -> int:
     removed = cur.rowcount or 0
     con.commit()
     con.close()
+
+    # Clean up orphaned tags after deletion
+    if removed > 0:
+        _cleanup_orphaned_tags()
+
     return removed
 
 
@@ -275,12 +326,18 @@ def delete_link(link_id: str) -> bool:
     Returns
         bool: True if link deleted, False if not.
     """
-    con = sqlite3.connect(db_path)
-    with con as cur:
-        cur.execute(
-            "DELETE FROM links WHERE id = :link_id", {"link_id": link_id}
-        )
-        return True
+    con = _get_connection()
+    cur = con.cursor()
+    cur.execute(
+        "DELETE FROM links WHERE id = :link_id", {"link_id": link_id}
+    )
+    con.commit()
+    con.close()
+
+    # Clean up orphaned tags after deletion
+    _cleanup_orphaned_tags()
+
+    return True
 
 
 # initialize database
@@ -314,6 +371,16 @@ def init_db(cur_version: str) -> None:
         ) as sql_file:
             cur.executescript(sql_file.read())
             con.commit()
+
+    # Initialize reset_filter_on_click setting if not present
+    cur.execute(
+        """
+        INSERT OR IGNORE INTO metadata (id, name, value)
+        VALUES (:id, :name, :value)
+        """,
+        {"id": str(uuid4()), "name": "reset_filter_on_click", "value": "0"}
+    )
+    con.commit()
     con.close()
     app_config.ensure_config_file()
     _ensure_expires_column()
@@ -362,8 +429,18 @@ def save_link(
                 },
             )
             con.commit()
+
+            # Automatically add "temporary" tag to temporary links
+            if expires_at is not None:
+                add_tag_to_link(new_id, "temporary")
+
             return new_id
         else:
+            # Get the old expires_at value to determine tag changes
+            cur.execute("SELECT expires_at FROM links WHERE id = :id", {"id": link_id})
+            row = cur.fetchone()
+            old_expires_at = row[0] if row else None
+
             cur.execute(
                 "UPDATE links SET name = :name, url = :url, expires_at = :expires_at WHERE id = :id",
                 {
@@ -374,6 +451,21 @@ def save_link(
                 },
             )
             con.commit()
+
+            # Handle "temporary" tag based on expiration changes
+            if expires_at is not None and old_expires_at is None:
+                # Link became temporary, add the tag
+                add_tag_to_link(link_id, "temporary")
+            elif expires_at is None and old_expires_at is not None:
+                # Link became permanent, remove the tag
+                cur.execute(
+                    "SELECT id FROM tags WHERE name = :name",
+                    {"name": "temporary"}
+                )
+                tag_row = cur.fetchone()
+                if tag_row:
+                    remove_tag_from_link(link_id, tag_row[0])
+
             return link_id
     except IntegrityError as exc:
         con.rollback()
@@ -417,6 +509,40 @@ def update_frecency_config(batch_size: int, max_rank: int) -> Dict[str, int]:
     return {"batch_size": updated.batch_size, "max_rank": updated.max_rank}
 
 
+def get_reset_filter_on_click() -> bool:
+    """Get the reset_filter_on_click setting from metadata table."""
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    cur.execute(
+        "SELECT value FROM metadata WHERE name = :name",
+        {"name": "reset_filter_on_click"}
+    )
+    row = cur.fetchone()
+    con.close()
+    if row is None:
+        # Default to False if not set
+        return False
+    return row["value"] == "1"
+
+
+def set_reset_filter_on_click(enabled: bool) -> None:
+    """Set the reset_filter_on_click setting in metadata table."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    value = "1" if enabled else "0"
+    cur.execute(
+        """
+        INSERT INTO metadata (id, name, value)
+        VALUES (:id, :name, :value)
+        ON CONFLICT(name) DO UPDATE SET value = :value
+        """,
+        {"id": str(uuid4()), "name": "reset_filter_on_click", "value": value}
+    )
+    con.commit()
+    con.close()
+
+
 # Upgrade the database
 def upgrade_db(cur_version: str, desired_version: str) -> None:
     """
@@ -452,7 +578,7 @@ def decrement_rank(max_rank: Optional[int] = None) -> None:
     Parameters:
         max_rank (int): Maximum rank.
     """
-    con = sqlite3.connect(db_path)
+    con = _get_connection()
     cur = con.cursor()
     if max_rank is None:
         max_rank = app_config.get_runtime_config().frecency.max_rank
@@ -465,10 +591,22 @@ def decrement_rank(max_rank: Optional[int] = None) -> None:
         print(
             "INFO:     Sum of all ranks is greater than max rank, decrementing all ranks."
         )
+        # Check how many links will be deleted before deletion
+        cur.execute("SELECT COUNT(*) FROM links WHERE rank < 1")
+        to_delete = cur.fetchone()[0]
+
         cur.executescript(
             "DELETE from links WHERE rank < 1; UPDATE links SET rank = rank * 0.99;"
         )
         con.commit()
+        con.close()
+
+        # Clean up orphaned tags after deletion
+        if to_delete > 0:
+            _cleanup_orphaned_tags()
+        return
+
+    con.close()
 
 
 # Get application metadata from pyproject.toml file.

@@ -10,9 +10,32 @@ function applyTheme(theme) {
 }
 
 function initTheme() {
+    // Check if theme is set via URL parameter
+    const urlTheme = root.getAttribute("data-theme");
     const storedTheme = localStorage.getItem(THEME_KEY);
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    applyTheme(storedTheme || (prefersDark ? "mocha" : "latte"));
+
+    let themeToApply;
+
+    // Priority: URL parameter > localStorage > system preference
+    if (urlTheme === "system") {
+        // Use system preference when explicitly set to "system"
+        themeToApply = prefersDark ? "mocha" : "latte";
+    } else if (urlTheme && (urlTheme === "latte" || urlTheme === "mocha")) {
+        // Use URL-specified theme (don't save to localStorage for URL-based themes)
+        themeToApply = urlTheme;
+        root.setAttribute("data-theme", themeToApply);
+        // Update toggle label without saving to localStorage
+        document.querySelectorAll("[data-theme-toggle-label]").forEach((label) => {
+            label.textContent = themeToApply === "latte" ? "Dark" : "Light";
+        });
+        return; // Skip localStorage and toggle setup for URL-controlled themes
+    } else {
+        // Fall back to stored preference or system preference
+        themeToApply = storedTheme || (prefersDark ? "mocha" : "latte");
+    }
+
+    applyTheme(themeToApply);
 
     document.querySelectorAll("[data-theme-toggle]").forEach((btn) => {
         btn.addEventListener("click", (event) => {
@@ -344,6 +367,39 @@ function initTemporaryLinkControls() {
     });
 }
 
+function initFilterResetBehavior() {
+    const resetEnabled = document.body.dataset.resetFilterOnClick === "true";
+    if (!resetEnabled) return;
+
+    const isFiltered = document.body.dataset.isFiltered === "true";
+    const searchInput = document.getElementById("search-input");
+    const links = document.querySelectorAll('a[href^="/redirect/"]');
+
+    links.forEach((anchor) => {
+        if (anchor.dataset.filterResetBound) return;
+        anchor.dataset.filterResetBound = "true";
+
+        anchor.addEventListener("click", () => {
+            const hasSearchActive = searchInput?.value.trim().length > 0;
+
+            // No filters active - nothing to do
+            if (!isFiltered && !hasSearchActive) return;
+
+            // Let target="_blank" open the link naturally
+            // Just reset the filter in this tab
+            if (hasSearchActive) {
+                searchInput.value = "";
+                const clearBtn = document.querySelector(".search-clear-btn");
+                if (clearBtn) clearBtn.style.display = "none";
+                htmx.trigger(searchInput.parentElement, "search");
+            } else if (isFiltered) {
+                // Delay navigation slightly to let the browser open the link first
+                setTimeout(() => window.location.href = "/", 100);
+            }
+        });
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSearchClear();
@@ -351,6 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initTagSuggestions();
     initTagRenameControls();
     initTemporaryLinkControls();
+    initFilterResetBehavior();
 });
 
 document.body.addEventListener("htmx:afterSwap", () => {
@@ -358,4 +415,5 @@ document.body.addEventListener("htmx:afterSwap", () => {
     initTagSuggestions();
     initTagRenameControls();
     initTemporaryLinkControls();
+    initFilterResetBehavior();
 });

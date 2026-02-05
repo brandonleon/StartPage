@@ -2,16 +2,52 @@ import argparse
 import csv
 import io
 import json
+import re
 import sqlite3
 from pathlib import Path
 from time import time
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 from uuid import uuid4
 
+import httpx
+
 import services.db_utils as db_utils
 
 EXPORT_FIELDS = ("id", "name", "url", "rank", "accessed", "tags")
 VALID_FORMATS = {"csv", "json"}
+
+
+def fetch_url_title(url: str, timeout: int = 10) -> Optional[str]:
+    """
+    Fetch a URL and extract its title from the HTML.
+    Returns None if the request fails or no title is found.
+
+    Args:
+        url: The URL to fetch
+        timeout: Request timeout in seconds (default: 10)
+
+    Returns:
+        The page title as a string, or None if extraction fails
+    """
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            response = client.get(url)
+            response.raise_for_status()
+
+            # Try to extract title from HTML using regex
+            content = response.text
+            title_match = re.search(r'<title[^>]*>(.*?)</title>', content, re.IGNORECASE | re.DOTALL)
+
+            if title_match:
+                title = title_match.group(1).strip()
+                # Clean up the title - decode HTML entities and normalize whitespace
+                title = re.sub(r'\s+', ' ', title)
+                return title if title else None
+
+            return None
+    except (httpx.HTTPError, httpx.TimeoutException, Exception):
+        # Return None for any fetch/parse errors
+        return None
 
 
 def _normalize_format(format_name: str) -> str:
@@ -244,6 +280,25 @@ def _sync_tags(cursor: sqlite3.Cursor, link_id: str, tags: List[str]) -> None:
         )
 
 
+def _recalculate_tag_counts(cursor: sqlite3.Cursor) -> None:
+    """
+    Recalculate all tag counts based on actual tag_link_map entries.
+    Ensures accuracy after bulk operations.
+    """
+    cursor.execute(
+        """
+        UPDATE tags
+        SET count = (
+            SELECT COUNT(*)
+            FROM tag_link_map
+            WHERE tag_id = tags.id
+        )
+        """
+    )
+    # Clean up orphaned tags with zero count
+    cursor.execute("DELETE FROM tags WHERE count = 0")
+
+
 def _upsert_link(cursor: sqlite3.Cursor, row: Dict[str, object]) -> Tuple[str, bool]:
     link_id = row["id"] or str(uuid4())
     cursor.execute("SELECT 1 FROM links WHERE id = :id", {"id": link_id})
@@ -290,6 +345,7 @@ def export_db_links(
 def import_db_links(data: bytes, format_name: str) -> Dict[str, int]:
     """
     Import links from a CSV or JSON payload following the export schema.
+    Skips rows that would violate unique constraints (duplicate name/URL).
     """
     if not data:
         raise ValueError("Import payload is empty.")
@@ -300,22 +356,27 @@ def import_db_links(data: bytes, format_name: str) -> Dict[str, int]:
     cursor = connection.cursor()
     created = 0
     updated = 0
+    skipped = 0
     try:
         for index, raw_row in enumerate(raw_rows, start=1):
-            prepared = _prepare_import_row(raw_row, index)
-            link_id, existed = _upsert_link(cursor, prepared)
-            _sync_tags(cursor, link_id, prepared["tags"])
-            if existed:
-                updated += 1
-            else:
-                created += 1
+            try:
+                prepared = _prepare_import_row(raw_row, index)
+                link_id, existed = _upsert_link(cursor, prepared)
+                _sync_tags(cursor, link_id, prepared["tags"])
+                if existed:
+                    updated += 1
+                else:
+                    created += 1
+            except sqlite3.IntegrityError:
+                # Skip rows that would violate unique constraints (duplicate name/URL)
+                skipped += 1
+                continue
+        # Recalculate all tag counts to ensure accuracy after bulk changes
+        _recalculate_tag_counts(cursor)
         connection.commit()
-    except sqlite3.IntegrityError as exc:
-        connection.rollback()
-        raise ValueError("Import failed due to a database constraint violation.") from exc
     finally:
         connection.close()
-    return {"created": created, "updated": updated}
+    return {"created": created, "updated": updated, "skipped": skipped}
 
 
 def write_export_file(format_name: str, destination: Path, batch_size: int = 512) -> Path:
