@@ -141,6 +141,7 @@ def template_context(request: Optional[Request] = None, **extra):
     # Check for embed mode from query params
     embed_mode = False
     theme = "system"  # Default to system preference
+    embed_query_params = ""  # Query string to preserve embed mode and theme
 
     if request:
         embed_param = request.query_params.get("embed", "").lower()
@@ -156,6 +157,12 @@ def template_context(request: Optional[Request] = None, **extra):
             theme = "system"
         # If theme_param is empty or invalid, keep default "system"
 
+        # Build query string for preserving embed mode and theme
+        if embed_mode:
+            # Map internal theme names back to URL parameter values
+            theme_url_param = "dark" if theme == "mocha" else "light" if theme == "latte" else "system"
+            embed_query_params = f"?embed=true&theme={theme_url_param}"
+
     ctx = {
         "request": request,
         "version": str(config["app_version"]),
@@ -169,6 +176,7 @@ def template_context(request: Optional[Request] = None, **extra):
         "reset_filter_on_click": reset_filter,
         "embed_mode": embed_mode,
         "theme": theme,
+        "embed_query_params": embed_query_params,
     }
     ctx.update(extra)
     return ctx
