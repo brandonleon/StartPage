@@ -740,7 +740,36 @@ docker exec -it startpage startpage-config metrics-whitelist add 10.0.0.0/8</cod
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $remote_addr;
 }</code></pre>
-        <p class="mb-0">The OpenAPI docs at <code>/docs</code> include the <code>/metrics</code> operation details and 403 behavior when the source IP is not whitelisted.</p>
+        <p>The OpenAPI docs at <code>/docs</code> include the <code>/metrics</code> operation details and 403 behavior when the source IP is not whitelisted.</p>
+        <h4 class="h6 mt-3 mb-2">PromQL Quick Tests</h4>
+        <p>Replace <code>job="startpage"</code> if your Prometheus scrape job uses a different name.</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># Scrape status
+up{job="startpage"}
+
+# Core gauges
+startpage_links_total{job="startpage"}
+startpage_temp_links_total{job="startpage"}
+startpage_tags_total{job="startpage"}
+startpage_rank_sum{job="startpage"}
+
+# Temporary-link percentage
+100 * startpage_temp_links_total{job="startpage"} / clamp_min(startpage_links_total{job="startpage"}, 1)
+
+# /metrics traffic in last 24 hours
+increase(startpage_metrics_requests_total{job="startpage"}[24h])
+increase(startpage_metrics_denied_total{job="startpage"}[24h])
+
+# Denied percentage in last 24 hours
+100 * increase(startpage_metrics_denied_total{job="startpage"}[24h]) / clamp_min(increase(startpage_metrics_requests_total{job="startpage"}[24h]), 1)
+
+# App uptime (hours)
+startpage_metrics_uptime_seconds{job="startpage"} / 3600
+
+# Whitelist entry count
+startpage_metrics_whitelist_entries{job="startpage"}
+
+# Counter resets in 7 days (process restart hint)
+resets(startpage_metrics_requests_total{job="startpage"}[7d])</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Frecency Algorithm Parameters</h3>
         <p>The ranking formula is defined in <code>services/db_utils.py</code>:</p>
