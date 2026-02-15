@@ -128,3 +128,25 @@ def test_metrics_whitelist_round_trip():
 def test_metrics_whitelist_rejects_invalid_entries():
     with pytest.raises(ValueError):
         db_utils.update_metrics_whitelist(["not-an-ip"])
+
+
+def test_metrics_whitelist_add_entries_merges_without_replacing():
+    original = db_utils.get_metrics_whitelist()
+    db_utils.update_metrics_whitelist(["127.0.0.1/32"])
+    try:
+        updated = db_utils.add_metrics_whitelist_entries(
+            ["10.0.0.0/8", "192.168.1.10", "10.0.0.0/8"]
+        )
+        assert updated == ["127.0.0.1/32", "10.0.0.0/8", "192.168.1.10/32"]
+    finally:
+        db_utils.update_metrics_whitelist(original)
+
+
+def test_metrics_whitelist_remove_entries_uses_normalized_values():
+    original = db_utils.get_metrics_whitelist()
+    db_utils.update_metrics_whitelist(["127.0.0.1/32", "10.0.0.0/8", "192.168.1.10/32"])
+    try:
+        updated = db_utils.remove_metrics_whitelist_entries(["192.168.1.10", "10.0.0.0/8"])
+        assert updated == ["127.0.0.1/32"]
+    finally:
+        db_utils.update_metrics_whitelist(original)

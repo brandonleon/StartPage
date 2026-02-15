@@ -22,6 +22,16 @@ def _cmd_set(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_add(args: argparse.Namespace) -> int:
+    _print_whitelist(db_utils.add_metrics_whitelist_entries(args.entries))
+    return 0
+
+
+def _cmd_remove(args: argparse.Namespace) -> int:
+    _print_whitelist(db_utils.remove_metrics_whitelist_entries(args.entries))
+    return 0
+
+
 def _cmd_reset(_: argparse.Namespace) -> int:
     _print_whitelist(db_utils.reset_metrics_whitelist())
     return 0
@@ -52,6 +62,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     set_cmd.add_argument("entries", nargs="+", help="Entries like 127.0.0.1 or 10.0.0.0/8")
     set_cmd.set_defaults(handler=_cmd_set)
+
+    add_cmd = actions.add_parser(
+        "add",
+        help="Append one or more IP/CIDR values without replacing existing entries.",
+    )
+    add_cmd.add_argument("entries", nargs="+", help="Entries like 127.0.0.1 or 10.0.0.0/8")
+    add_cmd.set_defaults(handler=_cmd_add)
+
+    remove_cmd = actions.add_parser(
+        "remove",
+        help="Remove one or more IP/CIDR values from the current whitelist.",
+    )
+    remove_cmd.add_argument("entries", nargs="+", help="Entries like 127.0.0.1 or 10.0.0.0/8")
+    remove_cmd.set_defaults(handler=_cmd_remove)
 
     reset = actions.add_parser(
         "reset", help="Reset whitelist back to local-only defaults (127.0.0.1 and ::1)."

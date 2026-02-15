@@ -155,11 +155,16 @@ The algorithm ensures that:
 ### Prometheus Metrics
 - StartPage exposes Prometheus-style metrics at `GET /metrics`.
 - Access is restricted to IP/CIDR entries stored in SQLite metadata (`metrics_whitelist`); default entries are `127.0.0.1/32` and `::1/128`.
-- Manage that whitelist from CLI:
+- Manage that whitelist from local CLI:
   - `uv run python -m services.config_cli metrics-whitelist show`
+  - `uv run python -m services.config_cli metrics-whitelist add 10.0.0.0/8`
+  - `uv run python -m services.config_cli metrics-whitelist remove 10.0.0.0/8`
   - `uv run python -m services.config_cli metrics-whitelist set 127.0.0.1/32 10.0.0.0/8`
   - `uv run python -m services.config_cli metrics-whitelist reset`
   - `uv run python -m services.config_cli metrics-whitelist clear`
+- In Docker, use the built-in wrapper command:
+  - `docker exec -it startpage startpage-config metrics-whitelist show`
+  - `docker exec -it startpage startpage-config metrics-whitelist add 10.0.0.0/8`
 - If you run behind nginx, forward client IPs with:
   - `proxy_set_header X-Real-IP $remote_addr;`
   - `proxy_set_header X-Forwarded-For $remote_addr;`

@@ -713,8 +713,14 @@ purge_interval_seconds = 900</code></pre>
         <h3 class="h5 mt-4 mb-2">Prometheus Metrics Endpoint</h3>
         <p>StartPage exposes a Prometheus-compatible endpoint at <code>/metrics</code>. Access is restricted by an IP/CIDR whitelist stored in the SQLite <code>metadata</code> table under <code>metrics_whitelist</code>.</p>
         <p>Use the CLI helper to inspect and update that whitelist:</p>
-        <pre class="bg-dark text-light p-3 rounded"><code># Show current allow-list
+        <pre class="bg-dark text-light p-3 rounded"><code># Local development usage
 uv run python -m services.config_cli metrics-whitelist show
+
+# Append a new CIDR/IP without replacing existing entries
+uv run python -m services.config_cli metrics-whitelist add 10.0.0.0/8
+
+# Remove an existing CIDR/IP entry
+uv run python -m services.config_cli metrics-whitelist remove 10.0.0.0/8
 
 # Replace allow-list entries
 uv run python -m services.config_cli metrics-whitelist set 127.0.0.1/32 10.0.0.0/8
@@ -723,7 +729,10 @@ uv run python -m services.config_cli metrics-whitelist set 127.0.0.1/32 10.0.0.0
 uv run python -m services.config_cli metrics-whitelist reset
 
 # Clear all entries (blocks all /metrics clients)
-uv run python -m services.config_cli metrics-whitelist clear</code></pre>
+uv run python -m services.config_cli metrics-whitelist clear
+
+# Docker shortcut (built into the image)
+docker exec -it startpage startpage-config metrics-whitelist add 10.0.0.0/8</code></pre>
         <p>When running behind nginx, pass the real client address explicitly so whitelist checks work correctly:</p>
         <pre class="bg-dark text-light p-3 rounded"><code>location / {
     proxy_pass http://127.0.0.1:8001;

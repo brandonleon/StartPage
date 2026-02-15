@@ -330,6 +330,27 @@ def update_metrics_whitelist(entries: List[str]) -> List[str]:
     return normalized
 
 
+def add_metrics_whitelist_entries(entries: List[str]) -> List[str]:
+    """Add one or more CIDR/IP entries to the /metrics whitelist."""
+    existing = get_metrics_whitelist()
+    additions: List[str] = []
+    for entry in entries:
+        value = _normalize_metrics_whitelist_entry(entry)
+        if value in existing or value in additions:
+            continue
+        additions.append(value)
+    if not additions:
+        return existing
+    return update_metrics_whitelist(existing + additions)
+
+
+def remove_metrics_whitelist_entries(entries: List[str]) -> List[str]:
+    """Remove one or more CIDR/IP entries from the /metrics whitelist."""
+    existing = get_metrics_whitelist()
+    removals = {_normalize_metrics_whitelist_entry(entry) for entry in entries}
+    return update_metrics_whitelist([entry for entry in existing if entry not in removals])
+
+
 def reset_metrics_whitelist() -> List[str]:
     """Reset the /metrics whitelist to local-only defaults."""
     return update_metrics_whitelist(list(DEFAULT_METRICS_WHITELIST))
