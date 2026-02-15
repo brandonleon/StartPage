@@ -46,12 +46,14 @@
         <h2 class="h4 mb-3">Table of Contents</h2>
         <ol class="list-group list-group-numbered list-group-flush">
             <li class="list-group-item"><a href="#overview">Overview</a></li>
+            <li class="list-group-item"><a href="#embed-mode">Embed Mode & Themes</a></li>
             <li class="list-group-item"><a href="#deployment">Deployment Options</a></li>
             <li class="list-group-item"><a href="#docker">Docker Deployment</a></li>
             <li class="list-group-item"><a href="#local">Local Development</a></li>
             <li class="list-group-item"><a href="#database">Database Management</a></li>
             <li class="list-group-item"><a href="#migration">Database Migration Guide</a></li>
             <li class="list-group-item"><a href="#backup">Backup and Restore</a></li>
+            <li class="list-group-item"><a href="#routes">Key Application Routes</a></li>
             <li class="list-group-item"><a href="#configuration">Configuration</a></li>
             <li class="list-group-item"><a href="#troubleshooting">Troubleshooting</a></li>
         </ol>
@@ -66,6 +68,8 @@
         <ul>
             <li><strong>Frecency-based ranking</strong> - Links automatically prioritize based on usage patterns</li>
             <li><strong>Tag system</strong> - Organize links with custom tags (personal, work, projects, etc.)</li>
+            <li><strong>Embed mode</strong> - Clean widget view for browser extensions and iframe integrations</li>
+            <li><strong>Theme controls</strong> - Force light or dark mode via URL parameters</li>
             <li><strong>Automatic pruning</strong> - Links with rank below 1 are automatically removed</li>
             <li><strong>Temporary links</strong> - Flag short-lived bookmarks that expire automatically (default 24 hours)</li>
             <li><strong>Prometheus metrics</strong> - Scrape runtime and database gauges from <code>/metrics</code></li>
@@ -112,6 +116,112 @@
                     </ul>
                 </div>
             </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Auto-fill link names</h3>
+                    <p class="text-muted">The <code>/fetch-title</code> endpoint automatically extracts page titles from URLs to populate link names, improving user experience when adding bookmarks.</p>
+                    <ul class="small">
+                        <li>Uses <code>httpx</code> library with 10-second timeout for HTTP requests.</li>
+                        <li>Regex-based HTML parsing to extract <code>&lt;title&gt;</code> tags (no BeautifulSoup dependency).</li>
+                        <li>HTMX integration with 800ms debounce on URL field changes.</li>
+                        <li>Graceful failure returns <code>None</code> if title cannot be fetched.</li>
+                        <li>JavaScript handler populates link name only if field is empty, allowing user overrides.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Duplicate detection</h3>
+                    <p class="text-muted">The <code>/duplicates/check</code> endpoint provides real-time validation to prevent duplicate links by checking both URL and name uniqueness.</p>
+                    <ul class="small">
+                        <li>HTMX-powered with 500ms debounce on field changes.</li>
+                        <li>Returns warning messages if duplicate URL or name is found.</li>
+                        <li>Visual feedback with loading indicators during validation.</li>
+                        <li>Checks run asynchronously without blocking form submission.</li>
+                        <li>Helps maintain database integrity by preventing user errors.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Embed Mode & Themes -->
+    <section class="glass-panel mb-4" id="embed-mode">
+        <h2 class="h3 mb-3">Embed Mode & Themes</h2>
+        <p>StartPage supports URL parameters for creating embeddable widgets and forcing specific themes. These features are perfect for browser extensions, iframe integrations, or custom start page setups.</p>
+
+        <h3 class="h5 mt-4 mb-2">Embed Mode</h3>
+        <p>Add <code>?embed=true</code> to any URL to enable embed mode. This hides the navigation bar and footer, creating a minimal widget view.</p>
+
+        <div class="glass-panel">
+            <h4 class="h6">Example URLs:</h4>
+            <pre class="bg-dark text-light p-3 rounded mb-2"><code>http://localhost:8080/?embed=true
+http://localhost:8080/?embed=true&tag=work
+http://localhost:8080/dashboard?embed=true</code></pre>
+        </div>
+
+        <h3 class="h5 mt-4 mb-2">Theme Parameter</h3>
+        <p>Force a specific theme using the <code>?theme</code> parameter. Available options:</p>
+        <ul>
+            <li><code>?theme=dark</code> - Force dark mode (Catppuccin Mocha)</li>
+            <li><code>?theme=light</code> - Force light mode (Catppuccin Latte)</li>
+            <li>No parameter - Use system preference (default behavior)</li>
+        </ul>
+
+        <div class="glass-panel">
+            <h4 class="h6">Example URLs:</h4>
+            <pre class="bg-dark text-light p-3 rounded mb-2"><code>http://localhost:8080/?theme=dark
+http://localhost:8080/?theme=light</code></pre>
+        </div>
+
+        <h3 class="h5 mt-4 mb-2">Combining Parameters</h3>
+        <p>You can use both embed mode and theme parameters together. All navigation within embed mode (tag filters, search, pagination) automatically preserves these parameters.</p>
+
+        <div class="glass-panel">
+            <h4 class="h6">Example URLs:</h4>
+            <pre class="bg-dark text-light p-3 rounded mb-2"><code>http://localhost:8080/?embed=true&theme=dark
+http://localhost:8080/?embed=true&theme=light&tag=personal</code></pre>
+        </div>
+
+        <h3 class="h5 mt-4 mb-2">Use Cases</h3>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h4 class="h6">Browser Extensions</h4>
+                    <p class="mb-0 small text-muted">Create a new tab extension that shows your most-used links in a clean, minimal interface without navigation chrome.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h4 class="h6">Iframe Embeds</h4>
+                    <p class="mb-0 small text-muted">Embed StartPage into dashboards, home automation panels, or other web applications with theme matching.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h4 class="h6">Multiple Monitors</h4>
+                    <p class="mb-0 small text-muted">Display different tag-filtered views on different screens, each with its own theme preference.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
+                    <h4 class="h6">Kiosk Mode</h4>
+                    <p class="mb-0 small text-muted">Run StartPage on a dedicated display with a locked theme and minimal UI for public or shared workspaces.</p>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="h5 mt-4 mb-2">Implementation Details</h3>
+        <p>The embed mode and theme parameters are:</p>
+        <ul>
+            <li><strong>Stateless</strong> - No cookies or local storage required</li>
+            <li><strong>Persistent</strong> - Parameters are preserved across all navigation (tag filters, pagination, search)</li>
+            <li><strong>Automatic</strong> - Template context helper <code>embed_query_params</code> handles parameter propagation</li>
+            <li><strong>Flexible</strong> - Works on all routes including index, dashboard, tags, and search results</li>
+        </ul>
+
+        <div class="alert alert-warning" role="alert">
+            <strong>Note:</strong> The theme parameter overrides system preferences. Users with <code>prefers-color-scheme</code> settings will see the forced theme instead of their system preference when the parameter is present.
         </div>
     </section>
 
@@ -411,6 +521,133 @@ docker start startpage</code></pre>
         <pre class="bg-dark text-light p-3 rounded"><code>sqlite3 -header -csv data/links.db "SELECT * FROM links;" > links.csv</code></pre>
     </section>
 
+    <!-- Key Routes -->
+    <section class="glass-panel mb-4" id="routes">
+        <h2 class="h3 mb-3">Key Application Routes</h2>
+        <p>StartPage exposes several important routes for end users and administrators. Understanding these helps with deployment, monitoring, and integration.</p>
+
+        <h3 class="h5 mt-4 mb-2">End User Routes</h3>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th>Route</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>/</code></td>
+                    <td>Homepage with frecency-ranked links and infinite scroll</td>
+                </tr>
+                <tr>
+                    <td><code>/dashboard</code></td>
+                    <td>Full link management with bulk operations (delete, tag)</td>
+                </tr>
+                <tr>
+                    <td><code>/tags</code></td>
+                    <td>Tag directory with rename, merge, and delete controls</td>
+                </tr>
+                <tr>
+                    <td><code>/stats</code></td>
+                    <td>Analytics dashboard showing rank distribution, top links, and pruning risks</td>
+                </tr>
+                <tr>
+                    <td><code>/settings</code></td>
+                    <td>Configuration page for batch size, max rank, temporary links, and navigation behavior</td>
+                </tr>
+                <tr>
+                    <td><code>/add</code></td>
+                    <td>Add new link with auto-fill, duplicate detection, and temporary link options</td>
+                </tr>
+                <tr>
+                    <td><code>/edit/{link_id}</code></td>
+                    <td>Edit existing link properties</td>
+                </tr>
+                <tr>
+                    <td><code>/help</code></td>
+                    <td>End user documentation and feature guide</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="h5 mt-4 mb-2">Admin & API Routes</h3>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th>Route</th>
+                    <th>Method</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>/exports/csv</code></td>
+                    <td>GET</td>
+                    <td>Export all links as CSV with headers: id,name,url,rank,accessed,tags</td>
+                </tr>
+                <tr>
+                    <td><code>/exports/json</code></td>
+                    <td>GET</td>
+                    <td>Export all links as JSON array</td>
+                </tr>
+                <tr>
+                    <td><code>/imports</code></td>
+                    <td>POST</td>
+                    <td>Bulk import links from CSV or JSON (form fields: format, upload)</td>
+                </tr>
+                <tr>
+                    <td><code>/fetch-title</code></td>
+                    <td>GET</td>
+                    <td>Auto-fetch page title from URL for link name population</td>
+                </tr>
+                <tr>
+                    <td><code>/duplicates/check</code></td>
+                    <td>GET</td>
+                    <td>Real-time duplicate detection (params: field=url|name, value)</td>
+                </tr>
+                <tr>
+                    <td><code>/redirect/{link_id}</code></td>
+                    <td>GET</td>
+                    <td>Redirect to link URL and increment rank in background task</td>
+                </tr>
+                <tr>
+                    <td><code>/dashboard/bulk-delete</code></td>
+                    <td>POST</td>
+                    <td>Delete multiple links by ID</td>
+                </tr>
+                <tr>
+                    <td><code>/dashboard/bulk-tag</code></td>
+                    <td>POST</td>
+                    <td>Append tags to multiple links simultaneously</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 class="h5 mt-4 mb-2">Documentation Routes</h3>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th>Route</th>
+                    <th>Audience</th>
+                    <th>Content</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>/help</code></td>
+                    <td>End Users</td>
+                    <td>Feature guide, daily usage tips, frecency explanation, and workflow documentation</td>
+                </tr>
+                <tr>
+                    <td><code>/docs</code> (this page)</td>
+                    <td>Administrators</td>
+                    <td>Deployment, configuration, database management, migrations, and troubleshooting</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="text-muted small mb-0">Note: The <code>/docs</code> route serves a static HTML file that powers the GitHub Pages documentation site for the project.</p>
+    </section>
+
     <!-- Configuration -->
     <section class="glass-panel mb-4" id="configuration">
         <h2 class="h3 mb-3">Configuration</h2>
@@ -509,6 +746,36 @@ uv run python -m services.config_cli metrics-whitelist clear</code></pre>
         <h3 class="h5 mt-4 mb-2">Temporary Link Controls</h3>
         <p>Mark a link as temporary from the add/edit form to set an automatic expiration (24 hours by default). Temporary links are highlighted in the UI and removed automatically when they expire.</p>
         <p>Use <a href="/settings">/settings</a> to toggle the feature, change the default duration, cap the custom duration, and adjust the cleanup interval. Updates are persisted to <code>config.toml</code> and apply immediately.</p>
+
+        <h3 class="h5 mt-4 mb-2">Monitoring with Statistics</h3>
+        <p>The <code>/stats</code> route provides a comprehensive analytics dashboard for monitoring link health and usage patterns. This is valuable for administrators who want to understand how the system is being used and identify potential issues before they occur.</p>
+
+        <div class="glass-panel">
+            <h4 class="h6">Available Metrics:</h4>
+            <ul>
+                <li><strong>Rank Overview:</strong> Total links, sum/average/max rank, and percentage of max rank capacity used</li>
+                <li><strong>Top Links:</strong> Top 10 most accessed links by rank with last access times</li>
+                <li><strong>Recent Activity:</strong> Recently accessed links to track current usage patterns</li>
+                <li><strong>At-Risk Links:</strong> 10 least accessed links with color-coded health status:
+                    <ul>
+                        <li>Red "Prune soon" - rank &lt; 1.1 (will be deleted in next cleanup)</li>
+                        <li>Yellow "Watchlist" - rank &lt; 2.5 (declining but not critical)</li>
+                        <li>Green "Healthy" - rank ≥ 2.5 (actively used)</li>
+                    </ul>
+                </li>
+                <li><strong>Access Patterns:</strong> Oldest and newest access timestamps across the entire collection</li>
+                <li><strong>Configuration Display:</strong> Current batch size, max rank threshold, and total pages</li>
+            </ul>
+        </div>
+
+        <p class="mt-3"><strong>Use Cases:</strong></p>
+        <ul>
+            <li>Monitor when automatic pruning will trigger (when sum rank approaches max_rank)</li>
+            <li>Identify stale links that haven't been accessed in months</li>
+            <li>Verify that frequently-used links have sufficient rank to avoid accidental deletion</li>
+            <li>Understand usage patterns to optimize batch size and max rank settings</li>
+            <li>Generate periodic reports for link collection health</li>
+        </ul>
     </section>
 
     <!-- Troubleshooting -->
@@ -575,7 +842,7 @@ uv run python -m services.config_cli metrics-whitelist clear</code></pre>
     <!-- Footer -->
     <section class="text-center py-4 text-muted">
         <p>StartPage v2.0.0 - Administrator Guide</p>
-        <p class="small">Last updated: December 2025</p>
+        <p class="small">Last updated: February 2026</p>
     </section>
 </div>
 

@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
@@ -119,3 +120,85 @@ def test_import_db_links_updates_existing_via_csv():
     tags = {tag["name"] for tag in db_utils.get_tags_for_link(link_id)}
     assert tags == {"new-tag", "second-tag"}
     _cleanup_link(link_id)
+
+
+def test_fetch_url_title_extracts_title_from_html():
+    """Test that fetch_url_title correctly extracts title from HTML response."""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Example Page Title</title>
+    </head>
+    <body>
+        <h1>Content</h1>
+    </body>
+    </html>
+    """
+
+    mock_response = Mock()
+    mock_response.text = html_content
+    mock_response.raise_for_status = Mock()
+
+    with patch("httpx.Client") as mock_client:
+        mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+        title = io_utils.fetch_url_title("https://example.com")
+
+    assert title == "Example Page Title"
+
+
+def test_fetch_url_title_handles_whitespace():
+    """Test that fetch_url_title normalizes whitespace in titles."""
+    html_content = """
+    <html>
+    <head>
+        <title>
+            Title   With
+            Extra   Whitespace
+        </title>
+    </head>
+    </html>
+    """
+
+    mock_response = Mock()
+    mock_response.text = html_content
+    mock_response.raise_for_status = Mock()
+
+    with patch("httpx.Client") as mock_client:
+        mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+        title = io_utils.fetch_url_title("https://example.com")
+
+    assert title == "Title With Extra Whitespace"
+
+
+def test_fetch_url_title_returns_none_on_error():
+    """Test that fetch_url_title returns None when the request fails."""
+    with patch("httpx.Client") as mock_client:
+        mock_client.return_value.__enter__.return_value.get.side_effect = Exception("Connection error")
+        title = io_utils.fetch_url_title("https://example.com")
+
+    assert title is None
+
+
+def test_fetch_url_title_returns_none_when_no_title():
+    """Test that fetch_url_title returns None when no title tag exists."""
+    html_content = """
+    <html>
+    <head>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+        <h1>No title tag</h1>
+    </body>
+    </html>
+    """
+
+    mock_response = Mock()
+    mock_response.text = html_content
+    mock_response.raise_for_status = Mock()
+
+    with patch("httpx.Client") as mock_client:
+        mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+        title = io_utils.fetch_url_title("https://example.com")
+
+    assert title is None

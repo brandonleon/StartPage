@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="latte">
+<html lang="en" data-theme="{{ theme | default('system') }}">
 {% include '_header.html' %}
-<body>
+<body data-reset-filter-on-click="{{ 'true' if reset_filter_on_click else 'false' }}"
+      data-is-filtered="{{ 'true' if filtered_tag else 'false' }}"
+      {% if embed_mode %}class="embed-mode"{% endif %}>
 
+{% if not embed_mode %}
 {% include 'navbar.html' %}
+{% endif %}
 
-<div class="container app-shell">
+<div class="container {% if embed_mode %}p-2{% else %}app-shell{% endif %}">
+    {% if not embed_mode %}
     <section class="hero glass-panel mb-4">
         <p class="text-uppercase text-muted small mb-1">Welcome back to {{ name }}</p>
         <h1>Your curated launchpad.</h1>
@@ -15,24 +20,29 @@
             <span class="stat-pill">Version {{ version }}</span>
         </div>
     </section>
+    {% endif %}
 
-    <section class="glass-panel">
+    <section class="{% if not embed_mode %}glass-panel{% endif %}">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
             <div>
-                <h2 class="h4 mb-1">{% if filtered_tag %}Links tagged "{{ filtered_tag }}"{% else %}Pinned Links{% endif %}</h2>
+                <h2 class="{% if embed_mode %}h6{% else %}h4{% endif %} mb-1">{% if filtered_tag %}Links tagged "{{ filtered_tag }}"{% else %}Pinned Links{% endif %}</h2>
+                {% if not embed_mode %}
                 <p class="text-muted mb-0">Sorted by how frequently you access them.</p>
+                {% endif %}
             </div>
+            {% if not embed_mode %}
             <a class="btn btn-outline-secondary" href="/add">Add link</a>
+            {% endif %}
         </div>
-        {% if all_tags %}
+        {% if all_tags and not embed_mode %}
         <div class="mb-3">
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="text-muted small">Filter by tag:</span>
                 {% if filtered_tag %}
-                <a href="/" class="badge bg-secondary text-decoration-none">Show all</a>
+                <a href="/{{ embed_query_params }}" class="badge bg-secondary text-decoration-none">Show all</a>
                 {% endif %}
                 {% for tag in all_tags %}
-                <a href="/tag/{{ tag.name }}" class="badge {% if filtered_tag == tag.name %}bg-primary{% else %}bg-light text-dark{% endif %} text-decoration-none">
+                <a href="/tag/{{ tag.name }}{{ embed_query_params }}" class="badge {% if filtered_tag == tag.name %}bg-primary{% else %}bg-light text-dark{% endif %} text-decoration-none">
                     {{ tag.name }} <span class="text-muted">({{ tag.count }})</span>
                 </a>
                 {% endfor %}
@@ -45,9 +55,9 @@
                 <li class="list-group-item flex-column align-items-start"
                     {% if loop.index == page_batch_size %}
                         {% if filtered_tag %}
-                            hx-get="/tag/{{ filtered_tag }}/links/{{ page + 1 }}"
+                            hx-get="/tag/{{ filtered_tag }}/links/{{ page + 1 }}{{ embed_query_params }}"
                         {% else %}
-                            hx-get="/links/{{ page + 1 }}"
+                            hx-get="/links/{{ page + 1 }}{{ embed_query_params }}"
                         {% endif %}
                         hx-trigger="revealed"
                         hx-swap="afterend"
@@ -62,15 +72,18 @@
                                    data-bs-placement="left"
                                    data-bs-delay="200"
                                    title="{{ link.url|truncate(255) }}">{{ link.name }}</a>
+                                {% if not embed_mode %}
                                 <div class="text-muted small link-url">{{ link.url }}</div>
+                                {% endif %}
                                 {% if link.tags %}
                                 <div class="mt-2">
                                     {% for tag in link.tags %}
-                                    <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                                    <a href="/tag/{{ tag.name }}{{ embed_query_params }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
                             </div>
+                            {% if not embed_mode %}
                             <div class="link-metadata text-md-end">
                                 <span class="tag">Rank {{ "%.2f"|format(link.rank) }}</span>
                                 <div class="small text-muted">Last used {{ link.accessed }}</div>
@@ -81,6 +94,7 @@
                                 </div>
                                 {% endif %}
                             </div>
+                            {% endif %}
                         </div>
                     </div>
                 </li>
@@ -89,7 +103,9 @@
     </section>
 </div>
 
+{% if not embed_mode %}
 {% include '_footer.html' %}
+{% endif %}
 
 </body>
 </html>

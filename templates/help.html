@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="latte">
+<html lang="en" data-theme="{{ theme | default('system') }}">
 {% include '_header.html' %}
 <body>
 
@@ -32,16 +32,83 @@
     </section>
 
     <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Embed mode &amp; themes</h2>
+        <p>StartPage can be embedded as a minimal widget or integrated into other pages using URL parameters.</p>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Embed mode</h3>
+                    <p class="mb-2">Add <code>?embed=true</code> to any URL to hide the navigation bar and footer, creating a clean widget view perfect for browser extensions or iframe embeds.</p>
+                    <p class="mb-0 text-muted small">Example: <code>http://localhost:8080/?embed=true</code></p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Theme parameter</h3>
+                    <p class="mb-2">Force a specific theme with <code>?theme=dark</code> or <code>?theme=light</code>. Without this parameter, StartPage uses your system preference.</p>
+                    <p class="mb-0 text-muted small">Example: <code>http://localhost:8080/?theme=dark</code></p>
+                </div>
+            </div>
+        </div>
+        <div class="callout mt-3">
+            <p class="mb-2"><strong>Combine parameters:</strong> Use both together for a themed embed.</p>
+            <p class="mb-0 text-muted small">Example: <code>http://localhost:8080/?embed=true&amp;theme=dark</code></p>
+            <p class="text-muted small mb-0 mt-2">All navigation within embed mode (tag filters, search, pagination) automatically preserves these parameters so your configuration stays consistent.</p>
+        </div>
+    </section>
+
+    <section class="glass-panel mb-4">
         <h2 class="h5 mb-3">Add &amp; edit links</h2>
         <ul class="list-unstyled d-grid gap-3">
+            <li>
+                <strong>Auto-fill link names.</strong> When adding a new link, just paste the URL and leave the name field blank. StartPage automatically fetches the page title and fills it in for you. A spinner appears while fetching, and you can always override it with your own custom name.
+            </li>
+            <li>
+                <strong>Duplicate detection.</strong> As you type a URL or name, StartPage checks in real-time if it already exists in your collection. You'll see a warning if you're about to create a duplicate, helping you avoid clutter.
+            </li>
             <li>
                 <strong>Smart tag suggestions.</strong> When you type in the tag field, suggestions pop up automatically and filter as you go. Click a pill to insert the tag without worrying about typos. Tags keep only letters, numbers, and hyphens—spaces become hyphens automatically and everything else is discarded.
             </li>
             <li>
                 <strong>Balanced rank.</strong> Newly added links start with the average rank so they appear near the top but settle naturally over time.
             </li>
+        </ul>
+    </section>
+
+    <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Temporary links</h2>
+        <p>Flag short-lived bookmarks that expire automatically—perfect for project-specific resources, event pages, or anything you only need for a limited time.</p>
+        <ul class="list-unstyled d-grid gap-3">
             <li>
-                <strong>Bulk actions.</strong> The dashboard lets you select several links at once to delete or append tags in batches.
+                <strong>How to create.</strong> When adding or editing a link, toggle the "Make this a temporary link" switch. Choose a duration preset (default is 24 hours) or set a custom expiration time.
+            </li>
+            <li>
+                <strong>Automatic cleanup.</strong> Temporary links are automatically deleted when their timer expires. The cleanup runs in the background every 10 minutes and also happens whenever you load the homepage.
+            </li>
+            <li>
+                <strong>Visual indicators.</strong> Temporary links appear with a special badge showing their expiration time, so you always know when they'll disappear.
+            </li>
+            <li>
+                <strong>Configurable defaults.</strong> Visit <code>/settings</code> to adjust the default duration, enable/disable the feature, or change the maximum custom hours allowed.
+            </li>
+        </ul>
+    </section>
+
+    <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Dashboard &amp; bulk operations</h2>
+        <p>The dashboard at <code>/dashboard</code> gives you a complete view of all your links with powerful batch editing capabilities.</p>
+        <ul class="list-unstyled d-grid gap-3">
+            <li>
+                <strong>Bulk delete.</strong> Select multiple links using the checkboxes, then click "Delete selected" to remove them all at once. Perfect for cleaning up old or irrelevant bookmarks.
+            </li>
+            <li>
+                <strong>Bulk tag.</strong> Select multiple links and use the bulk tag field to append tags to all of them simultaneously. Great for organizing imported links or categorizing groups of bookmarks.
+            </li>
+            <li>
+                <strong>Export your data.</strong> The dashboard banner links to <code>/exports/csv</code> and <code>/exports/json</code> for creating backups or migrating to another instance.
+            </li>
+            <li>
+                <strong>Import links.</strong> Use the import form to bulk-upload links from CSV or JSON files. Existing links (matched by ID) are updated, new ones are created.
             </li>
         </ul>
     </section>
@@ -58,11 +125,77 @@
     </section>
 
     <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Statistics &amp; insights</h2>
+        <p>Visit <code>/stats</code> to see comprehensive analytics about your link collection and usage patterns.</p>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Rank overview</h3>
+                    <p class="mb-0">View total links, sum/average/max rank, and see what percentage of your rank capacity is currently in use. This helps you understand when automatic pruning might kick in.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Top &amp; recent links</h3>
+                    <p class="mb-0">See your top 10 most accessed links by rank, recently accessed links, and the 10 least accessed links that are at risk of being pruned.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Access patterns</h3>
+                    <p class="mb-0">Track when you last accessed any link and identify stale bookmarks that haven't been used in a while.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Pruning warnings</h3>
+                    <p class="mb-0">Links are color-coded by health status: red for "prune soon" (rank &lt; 1.1), yellow for "watchlist" (rank &lt; 2.5), and green for "healthy".</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="glass-panel mb-4">
+        <h2 class="h5 mb-3">Settings &amp; configuration</h2>
+        <p>Customize how StartPage works by visiting <code>/settings</code>. All changes take effect immediately and are saved to your configuration file.</p>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Frecency settings</h3>
+                    <p class="mb-2"><strong>Batch size:</strong> Control how many links appear per page (default: 20). Increase for fewer page loads, decrease for faster loading.</p>
+                    <p class="mb-0"><strong>Max rank threshold:</strong> Set the total rank pool allowed before automatic cleanup kicks in (default: 1000).</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Temporary link controls</h3>
+                    <p class="mb-2"><strong>Enable/disable:</strong> Toggle the temporary links feature on or off.</p>
+                    <p class="mb-2"><strong>Default duration:</strong> Set how long temporary links last by default (default: 24 hours).</p>
+                    <p class="mb-0"><strong>Max custom hours:</strong> Limit how long users can set custom expiration times (default: 720 hours / 30 days).</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Navigation behavior</h3>
+                    <p class="mb-0"><strong>Reset filter on click:</strong> Choose whether clicking a link from a tag-filtered view returns you to the full list or keeps the filter active.</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="callout h-100">
+                    <h3 class="h6 text-uppercase text-muted mb-2">Theme preference</h3>
+                    <p class="mb-0">Use the theme toggle button in the navbar (sun/moon icon) to switch between light and dark modes. Your preference is saved in your browser.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="glass-panel mb-4">
         <h2 class="h5 mb-3">Import &amp; export</h2>
         <ul class="mb-0">
             <li><strong>Export anytime:</strong> The dashboard banner links to <code>/exports/csv</code> and <code>/exports/json</code>. CSV files include <code>id,name,url,rank,accessed,tags</code> (semicolon-separated tags) and JSON returns an array with the same fields.</li>
-            <li><strong>Import in bulk:</strong> Use the “Import links” form on <code>/dashboard</code> (or POST to <code>/imports</code>) with a matching CSV or JSON payload. Provide an <code>id</code> to update an existing link; leave it blank to create a new one.</li>
+            <li><strong>Import in bulk:</strong> Use the "Import links" form on <code>/dashboard</code> (or POST to <code>/imports</code>) with a matching CSV or JSON payload. Import uses strict ID-based merging: if a row's <code>id</code> matches an existing link, that link is updated with new values (name, url, rank, accessed, tags). If the <code>id</code> doesn't match or is blank, a new link is created. This means you can export, modify tags or other fields, and re-import to update your links while preserving their frecency scores.</li>
             <li><strong>CLI workflows:</strong> Headless installs can run <code>uv run python -m services.io_utils csv -o backups/startpage-links.csv</code> to export, then <code>curl -F format=json -F upload=@links.json http://your-host/imports</code> (or csv) to re-import without touching the UI.</li>
+            <li><strong>Important notes:</strong> Link names and URLs must be unique. Leading/trailing whitespace is automatically trimmed during import. If a row would violate uniqueness constraints (duplicate name or URL with different ID), that row is skipped and the import continues with remaining rows. The summary will show how many links were created, updated, or skipped.</li>
         </ul>
     </section>
 
