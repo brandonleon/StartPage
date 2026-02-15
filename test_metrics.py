@@ -15,6 +15,21 @@ def _restore_metrics_whitelist():
 
 
 @pytest.fixture(autouse=True)
+def _restore_metrics_runtime_counters():
+    original_requests = db_utils.get_metadata_value("metrics_requests_total")
+    original_denied = db_utils.get_metadata_value("metrics_denied_total")
+    yield
+    if original_requests is None:
+        db_utils.set_metadata_value("metrics_requests_total", "0", overwrite=False)
+    else:
+        db_utils.set_metadata_value("metrics_requests_total", original_requests)
+    if original_denied is None:
+        db_utils.set_metadata_value("metrics_denied_total", "0", overwrite=False)
+    else:
+        db_utils.set_metadata_value("metrics_denied_total", original_denied)
+
+
+@pytest.fixture(autouse=True)
 def _restore_trusted_proxy_cidrs_env():
     original = os.environ.get("STARTPAGE_TRUSTED_PROXY_CIDRS")
     yield
@@ -85,3 +100,23 @@ async def test_metrics_route_uses_forwarded_headers_from_configured_proxy():
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get("/metrics", headers={"x-forwarded-for": "10.1.2.3"})
     assert response.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_metrics_route_updates_shared_runtime_counters():
+    db_utils.set_metadata_value("metrics_requests_total", "0")
+    db_utils.set_metadata_value("metrics_denied_total", "0")
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        db_utils.update_metrics_whitelist(["127.0.0.1/32"])
+        allowed = await client.get("/metrics")
+        assert allowed.status_code == 200
+
+        db_utils.update_metrics_whitelist(["10.0.0.0/8"])
+        denied = await client.get("/metrics")
+        assert denied.status_code == 403
+
+    counters = db_utils.get_metrics_runtime_counters()
+    assert counters["requests_total"] == 2
+    assert counters["denied_total"] == 1

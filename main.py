@@ -298,8 +298,6 @@ async def favicon():
 
 
 app.state.metrics_started_at = int(time())
-app.state.metrics_requests_total = 0
-app.state.metrics_denied_total = 0
 
 
 @app.get(
@@ -312,10 +310,10 @@ app.state.metrics_denied_total = 0
     responses={403: {"description": "Client IP is not allowed by the metrics whitelist."}},
 )
 async def metrics(request: Request):
-    app.state.metrics_requests_total += 1
     request_ip = _request_ip_address(request)
-    if not db_utils.is_ip_allowed_for_metrics(request_ip):
-        app.state.metrics_denied_total += 1
+    is_allowed = db_utils.is_ip_allowed_for_metrics(request_ip)
+    counters = db_utils.increment_metrics_runtime_counters(denied=not is_allowed)
+    if not is_allowed:
         raise HTTPException(status_code=403, detail="Metrics access denied for this IP.")
 
     snapshot = db_utils.get_metrics_snapshot()
@@ -324,8 +322,8 @@ async def metrics(request: Request):
     payload = _render_metrics_payload(
         snapshot,
         uptime_seconds=uptime_seconds,
-        requests_total=app.state.metrics_requests_total,
-        denied_total=app.state.metrics_denied_total,
+        requests_total=counters["requests_total"],
+        denied_total=counters["denied_total"],
         whitelist_size=len(whitelist),
     )
     return Response(content=payload, headers={"Content-Type": METRICS_CONTENT_TYPE})

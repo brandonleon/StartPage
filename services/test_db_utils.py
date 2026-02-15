@@ -130,6 +130,31 @@ def test_metrics_whitelist_rejects_invalid_entries():
         db_utils.update_metrics_whitelist(["not-an-ip"])
 
 
+def test_metrics_runtime_counters_increment():
+    original_requests = db_utils.get_metadata_value("metrics_requests_total")
+    original_denied = db_utils.get_metadata_value("metrics_denied_total")
+    try:
+        db_utils.set_metadata_value("metrics_requests_total", "0")
+        db_utils.set_metadata_value("metrics_denied_total", "0")
+
+        counters = db_utils.increment_metrics_runtime_counters(denied=False)
+        assert counters["requests_total"] == 1
+        assert counters["denied_total"] == 0
+
+        counters = db_utils.increment_metrics_runtime_counters(denied=True)
+        assert counters["requests_total"] == 2
+        assert counters["denied_total"] == 1
+    finally:
+        if original_requests is None:
+            db_utils.set_metadata_value("metrics_requests_total", "0", overwrite=False)
+        else:
+            db_utils.set_metadata_value("metrics_requests_total", original_requests)
+        if original_denied is None:
+            db_utils.set_metadata_value("metrics_denied_total", "0", overwrite=False)
+        else:
+            db_utils.set_metadata_value("metrics_denied_total", original_denied)
+
+
 def test_metrics_whitelist_add_entries_merges_without_replacing():
     original = db_utils.get_metrics_whitelist()
     db_utils.update_metrics_whitelist(["127.0.0.1/32"])

@@ -19,6 +19,8 @@ TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
 METRICS_WHITELIST_KEY = "metrics_whitelist"
 DEFAULT_METRICS_WHITELIST = ("127.0.0.1/32", "::1/128")
+METRICS_REQUESTS_TOTAL_KEY = "metrics_requests_total"
+METRICS_DENIED_TOTAL_KEY = "metrics_denied_total"
 
 
 def _get_connection() -> sqlite3.Connection:
@@ -81,6 +83,12 @@ def _ensure_metrics_whitelist_metadata() -> None:
         ",".join(DEFAULT_METRICS_WHITELIST),
         overwrite=False,
     )
+
+
+def _ensure_metrics_runtime_counters_metadata() -> None:
+    """Ensure metadata contains default values for /metrics runtime counters."""
+    set_metadata_value(METRICS_REQUESTS_TOTAL_KEY, "0", overwrite=False)
+    set_metadata_value(METRICS_DENIED_TOTAL_KEY, "0", overwrite=False)
 
 
 def _cleanup_orphaned_tags() -> int:
@@ -399,6 +407,81 @@ def get_metrics_snapshot() -> Dict[str, float]:
     }
 
 
+def _metadata_int(name: str) -> int:
+    raw = get_metadata_value(name)
+    if raw is None:
+        return 0
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, value)
+
+
+def get_metrics_runtime_counters() -> Dict[str, int]:
+    """Return shared /metrics request/deny counters."""
+    return {
+        "requests_total": _metadata_int(METRICS_REQUESTS_TOTAL_KEY),
+        "denied_total": _metadata_int(METRICS_DENIED_TOTAL_KEY),
+    }
+
+
+def increment_metrics_runtime_counters(*, denied: bool) -> Dict[str, int]:
+    """Atomically increment shared /metrics counters and return updated values."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+
+    # Ensure keys exist for first-run and upgraded databases.
+    cur.execute(
+        "INSERT OR IGNORE INTO metadata (id, name, value) VALUES (:id, :name, :value)",
+        {"id": str(uuid4()), "name": METRICS_REQUESTS_TOTAL_KEY, "value": "0"},
+    )
+    cur.execute(
+        "INSERT OR IGNORE INTO metadata (id, name, value) VALUES (:id, :name, :value)",
+        {"id": str(uuid4()), "name": METRICS_DENIED_TOTAL_KEY, "value": "0"},
+    )
+
+    cur.execute(
+        """
+        UPDATE metadata
+        SET value = CAST(CAST(COALESCE(NULLIF(value, ''), '0') AS INTEGER) + 1 AS TEXT)
+        WHERE name = :name
+        """,
+        {"name": METRICS_REQUESTS_TOTAL_KEY},
+    )
+    if denied:
+        cur.execute(
+            """
+            UPDATE metadata
+            SET value = CAST(CAST(COALESCE(NULLIF(value, ''), '0') AS INTEGER) + 1 AS TEXT)
+            WHERE name = :name
+            """,
+            {"name": METRICS_DENIED_TOTAL_KEY},
+        )
+
+    cur.execute(
+        "SELECT name, value FROM metadata WHERE name IN (:requests, :denied)",
+        {"requests": METRICS_REQUESTS_TOTAL_KEY, "denied": METRICS_DENIED_TOTAL_KEY},
+    )
+    rows = cur.fetchall()
+    con.commit()
+    con.close()
+
+    counters = {"requests_total": 0, "denied_total": 0}
+    for name, value in rows:
+        if name == METRICS_REQUESTS_TOTAL_KEY:
+            try:
+                counters["requests_total"] = max(0, int(value))
+            except (TypeError, ValueError):
+                counters["requests_total"] = 0
+        elif name == METRICS_DENIED_TOTAL_KEY:
+            try:
+                counters["denied_total"] = max(0, int(value))
+            except (TypeError, ValueError):
+                counters["denied_total"] = 0
+    return counters
+
+
 def _normalize_metrics_whitelist_entry(value: str) -> str:
     entry = value.strip()
     if not entry:
@@ -512,6 +595,7 @@ def init_db(cur_version: str) -> None:
     app_config.ensure_config_file()
     _ensure_expires_column()
     _ensure_metrics_whitelist_metadata()
+    _ensure_metrics_runtime_counters_metadata()
 
 
 # add link to database
