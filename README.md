@@ -168,6 +168,11 @@ The algorithm ensures that:
 - If you run behind nginx, forward client IPs with:
   - `proxy_set_header X-Real-IP $remote_addr;`
   - `proxy_set_header X-Forwarded-For $remote_addr;`
+- Forwarded headers are only trusted when the direct client IP matches
+  `STARTPAGE_TRUSTED_PROXY_CIDRS` (defaults to loopback only:
+  `127.0.0.1/32,::1/128`).
+- If nginx runs from another host/container network, set trusted proxy CIDRs
+  for StartPage (for example: `STARTPAGE_TRUSTED_PROXY_CIDRS=172.18.0.0/16`).
 - `/docs` includes the OpenAPI details for the `/metrics` route, including 403 behavior when a client IP is not whitelisted.
 
 ### Theme Switching

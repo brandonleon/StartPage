@@ -1,7 +1,9 @@
 import asyncio
 import contextlib
+import os
 import sqlite3
 from datetime import datetime
+from ipaddress import ip_address, ip_network
 from math import ceil
 from time import time
 from typing import Dict, List, Optional
@@ -54,6 +56,8 @@ SEARCH_PARTIALS = {
 }
 
 METRICS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
+TRUSTED_PROXY_CIDRS_ENV = "STARTPAGE_TRUSTED_PROXY_CIDRS"
+DEFAULT_TRUSTED_PROXY_CIDRS = ("127.0.0.1/32", "::1/128")
 
 
 TEMP_LINK_PRESETS: Dict[str, Optional[int]] = {
@@ -137,16 +141,65 @@ def _build_temp_link_form(
         "show_custom": show_custom,
     }
 
-def _request_ip_address(request: Request) -> Optional[str]:
+def _trusted_proxy_entries() -> List[str]:
+    raw = os.getenv(TRUSTED_PROXY_CIDRS_ENV, "").strip()
+    if not raw:
+        return list(DEFAULT_TRUSTED_PROXY_CIDRS)
+    entries: List[str] = []
+    for token in raw.split(","):
+        value = token.strip()
+        if value:
+            entries.append(value)
+    return entries
+
+
+def _is_trusted_proxy(client_ip: Optional[str]) -> bool:
+    if not client_ip:
+        return False
+    try:
+        remote_addr = ip_address(client_ip.strip())
+    except ValueError:
+        return False
+    for entry in _trusted_proxy_entries():
+        try:
+            if remote_addr in ip_network(entry, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def _forwarded_client_ip(request: Request) -> Optional[str]:
     real_ip = request.headers.get("x-real-ip")
     if real_ip and real_ip.strip():
-        return real_ip.strip()
+        candidate = real_ip.strip()
+        try:
+            ip_address(candidate)
+            return candidate
+        except ValueError:
+            pass
 
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
-        first_ip = forwarded_for.split(",")[0].strip()
-        if first_ip:
-            return first_ip
+        candidate = forwarded_for.split(",")[0].strip()
+        if candidate:
+            try:
+                ip_address(candidate)
+                return candidate
+            except ValueError:
+                pass
+
+    return None
+
+
+def _request_ip_address(request: Request) -> Optional[str]:
+    direct_ip = request.client.host if request.client else None
+    if _is_trusted_proxy(direct_ip):
+        forwarded = _forwarded_client_ip(request)
+        if forwarded:
+            return forwarded
+    if direct_ip:
+        return direct_ip
     if request.client:
         return request.client.host
     return None
