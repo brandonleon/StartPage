@@ -763,6 +763,23 @@ def update_frecency_config(batch_size: int, max_rank: int) -> Dict[str, int]:
     return {"batch_size": updated.batch_size, "max_rank": updated.max_rank}
 
 
+def get_trusted_proxy_cidrs() -> List[str]:
+    """Return the configured trusted proxy CIDRs for forwarded metrics IP headers."""
+    metrics = app_config.get_runtime_config().metrics
+    return list(metrics.trusted_proxy_cidrs)
+
+
+def normalize_trusted_proxy_cidrs(entries: List[str]) -> List[str]:
+    """Validate and normalize trusted proxy CIDR/IP entries without persisting."""
+    return list(app_config.normalize_trusted_proxy_cidrs(entries))
+
+
+def update_trusted_proxy_cidrs(entries: List[str]) -> List[str]:
+    """Persist trusted proxy CIDR/IP entries and return normalized values."""
+    metrics = app_config.update_metrics_settings(entries).metrics
+    return list(metrics.trusted_proxy_cidrs)
+
+
 def get_reset_filter_on_click() -> bool:
     """Get the reset_filter_on_click setting from metadata table."""
     con = sqlite3.connect(db_path)

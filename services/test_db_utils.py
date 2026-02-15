@@ -130,6 +130,22 @@ def test_metrics_whitelist_rejects_invalid_entries():
         db_utils.update_metrics_whitelist(["not-an-ip"])
 
 
+def test_trusted_proxy_cidrs_round_trip():
+    original = db_utils.get_trusted_proxy_cidrs()
+    try:
+        updated = db_utils.update_trusted_proxy_cidrs(
+            ["172.17.0.1", "10.0.0.0/24", "172.17.0.1/32"]
+        )
+        assert updated == ["172.17.0.1/32", "10.0.0.0/24"]
+    finally:
+        db_utils.update_trusted_proxy_cidrs(original)
+
+
+def test_trusted_proxy_cidrs_reject_invalid_entries():
+    with pytest.raises(ValueError):
+        db_utils.normalize_trusted_proxy_cidrs(["invalid-cidr"])
+
+
 def test_metrics_runtime_counters_increment():
     original_requests = db_utils.get_metadata_value("metrics_requests_total")
     original_denied = db_utils.get_metadata_value("metrics_denied_total")

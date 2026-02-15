@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 import main
+from services import app_config
 import services.db_utils as db_utils
 
 
@@ -37,6 +38,14 @@ def _restore_trusted_proxy_cidrs_env():
         os.environ.pop("STARTPAGE_TRUSTED_PROXY_CIDRS", None)
     else:
         os.environ["STARTPAGE_TRUSTED_PROXY_CIDRS"] = original
+    app_config.reload_runtime_config()
+
+
+@pytest.fixture(autouse=True)
+def _restore_trusted_proxy_cidrs_config():
+    original = db_utils.get_trusted_proxy_cidrs()
+    yield
+    db_utils.update_trusted_proxy_cidrs(original)
 
 
 @pytest.mark.anyio
@@ -95,8 +104,19 @@ async def test_metrics_route_ignores_forwarded_headers_from_untrusted_client():
 @pytest.mark.anyio
 async def test_metrics_route_uses_forwarded_headers_from_configured_proxy():
     os.environ["STARTPAGE_TRUSTED_PROXY_CIDRS"] = "172.18.0.0/16"
+    app_config.reload_runtime_config()
     db_utils.update_metrics_whitelist(["10.0.0.0/8"])
     transport = httpx.ASGITransport(app=main.app, client=("172.18.0.10", 4321))
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/metrics", headers={"x-forwarded-for": "10.1.2.3"})
+    assert response.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_metrics_route_uses_forwarded_headers_from_runtime_settings():
+    db_utils.update_trusted_proxy_cidrs(["172.19.0.0/16"])
+    db_utils.update_metrics_whitelist(["10.0.0.0/8"])
+    transport = httpx.ASGITransport(app=main.app, client=("172.19.0.10", 4321))
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get("/metrics", headers={"x-forwarded-for": "10.1.2.3"})
     assert response.status_code == 200
