@@ -7,7 +7,16 @@ from time import time
 from typing import Dict, List, Optional
 
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from packaging.version import parse
@@ -52,6 +61,8 @@ SEARCH_PARTIALS = {
     "links": "links.html",
     "dashboard": "dashboard_items.html",
 }
+
+METRICS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 
 
 TEMP_LINK_PRESETS: Dict[str, Optional[int]] = {
@@ -135,6 +146,61 @@ def _build_temp_link_form(
         "show_custom": show_custom,
     }
 
+
+def _request_ip_address(request: Request) -> Optional[str]:
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip and real_ip.strip():
+        return real_ip.strip()
+
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        first_ip = forwarded_for.split(",")[0].strip()
+        if first_ip:
+            return first_ip
+    if request.client:
+        return request.client.host
+    return None
+
+
+def _render_metrics_payload(
+    snapshot: Dict[str, float],
+    *,
+    uptime_seconds: int,
+    requests_total: int,
+    denied_total: int,
+    whitelist_size: int,
+) -> str:
+    return "\n".join(
+        [
+            "# HELP startpage_links_total Number of stored links.",
+            "# TYPE startpage_links_total gauge",
+            f"startpage_links_total {snapshot['total_links']}",
+            "# HELP startpage_temp_links_total Number of active temporary links.",
+            "# TYPE startpage_temp_links_total gauge",
+            f"startpage_temp_links_total {snapshot['total_temporary_links']}",
+            "# HELP startpage_tags_total Number of defined tags.",
+            "# TYPE startpage_tags_total gauge",
+            f"startpage_tags_total {snapshot['total_tags']}",
+            "# HELP startpage_rank_sum Sum of link rank values.",
+            "# TYPE startpage_rank_sum gauge",
+            f"startpage_rank_sum {snapshot['rank_sum']}",
+            "# HELP startpage_metrics_uptime_seconds Process uptime.",
+            "# TYPE startpage_metrics_uptime_seconds gauge",
+            f"startpage_metrics_uptime_seconds {uptime_seconds}",
+            "# HELP startpage_metrics_requests_total Total /metrics requests.",
+            "# TYPE startpage_metrics_requests_total counter",
+            f"startpage_metrics_requests_total {requests_total}",
+            "# HELP startpage_metrics_denied_total Total denied /metrics requests.",
+            "# TYPE startpage_metrics_denied_total counter",
+            f"startpage_metrics_denied_total {denied_total}",
+            "# HELP startpage_metrics_whitelist_entries Configured /metrics whitelist entries.",
+            "# TYPE startpage_metrics_whitelist_entries gauge",
+            f"startpage_metrics_whitelist_entries {whitelist_size}",
+            "",
+        ]
+    )
+
+
 def template_context(**extra):
     ctx = {
         "version": str(config["app_version"]),
@@ -154,6 +220,40 @@ def template_context(**extra):
 @app.get("/favicon.ico")
 async def favicon():
     return FileResponse("static/favicon.ico")
+
+
+app.state.metrics_started_at = int(time())
+app.state.metrics_requests_total = 0
+app.state.metrics_denied_total = 0
+
+
+@app.get(
+    "/metrics",
+    summary="Prometheus metrics",
+    description=(
+        "Exposes metrics in Prometheus text format. Access is restricted using the "
+        "database-backed metrics whitelist."
+    ),
+    responses={403: {"description": "Client IP is not allowed by the metrics whitelist."}},
+)
+async def metrics(request: Request):
+    app.state.metrics_requests_total += 1
+    request_ip = _request_ip_address(request)
+    if not db_utils.is_ip_allowed_for_metrics(request_ip):
+        app.state.metrics_denied_total += 1
+        raise HTTPException(status_code=403, detail="Metrics access denied for this IP.")
+
+    snapshot = db_utils.get_metrics_snapshot()
+    whitelist = db_utils.get_metrics_whitelist()
+    uptime_seconds = max(0, int(time()) - int(app.state.metrics_started_at))
+    payload = _render_metrics_payload(
+        snapshot,
+        uptime_seconds=uptime_seconds,
+        requests_total=app.state.metrics_requests_total,
+        denied_total=app.state.metrics_denied_total,
+        whitelist_size=len(whitelist),
+    )
+    return Response(content=payload, headers={"Content-Type": METRICS_CONTENT_TYPE})
 
 
 # get first page of links

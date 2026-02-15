@@ -113,3 +113,18 @@ def test_find_link_by_url_returns_summary():
     assert summary["id"] == link_id
     assert summary["name"] == name
     db_utils.delete_link(link_id)
+
+
+def test_metrics_whitelist_round_trip():
+    original = db_utils.get_metrics_whitelist()
+    updated = db_utils.update_metrics_whitelist(["10.0.0.0/8", "192.168.1.10"])
+    assert updated == ["10.0.0.0/8", "192.168.1.10/32"]
+    assert db_utils.is_ip_allowed_for_metrics("10.12.0.5") is True
+    assert db_utils.is_ip_allowed_for_metrics("192.168.1.10") is True
+    assert db_utils.is_ip_allowed_for_metrics("8.8.8.8") is False
+    db_utils.update_metrics_whitelist(original)
+
+
+def test_metrics_whitelist_rejects_invalid_entries():
+    with pytest.raises(ValueError):
+        db_utils.update_metrics_whitelist(["not-an-ip"])
