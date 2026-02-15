@@ -113,3 +113,65 @@ def test_find_link_by_url_returns_summary():
     assert summary["id"] == link_id
     assert summary["name"] == name
     db_utils.delete_link(link_id)
+
+
+def test_metrics_whitelist_round_trip():
+    original = db_utils.get_metrics_whitelist()
+    updated = db_utils.update_metrics_whitelist(["10.0.0.0/8", "192.168.1.10"])
+    assert updated == ["10.0.0.0/8", "192.168.1.10/32"]
+    assert db_utils.is_ip_allowed_for_metrics("10.12.0.5") is True
+    assert db_utils.is_ip_allowed_for_metrics("192.168.1.10") is True
+    assert db_utils.is_ip_allowed_for_metrics("8.8.8.8") is False
+    db_utils.update_metrics_whitelist(original)
+
+
+def test_metrics_whitelist_rejects_invalid_entries():
+    with pytest.raises(ValueError):
+        db_utils.update_metrics_whitelist(["not-an-ip"])
+
+
+def test_metrics_runtime_counters_increment():
+    original_requests = db_utils.get_metadata_value("metrics_requests_total")
+    original_denied = db_utils.get_metadata_value("metrics_denied_total")
+    try:
+        db_utils.set_metadata_value("metrics_requests_total", "0")
+        db_utils.set_metadata_value("metrics_denied_total", "0")
+
+        counters = db_utils.increment_metrics_runtime_counters(denied=False)
+        assert counters["requests_total"] == 1
+        assert counters["denied_total"] == 0
+
+        counters = db_utils.increment_metrics_runtime_counters(denied=True)
+        assert counters["requests_total"] == 2
+        assert counters["denied_total"] == 1
+    finally:
+        if original_requests is None:
+            db_utils.set_metadata_value("metrics_requests_total", "0", overwrite=False)
+        else:
+            db_utils.set_metadata_value("metrics_requests_total", original_requests)
+        if original_denied is None:
+            db_utils.set_metadata_value("metrics_denied_total", "0", overwrite=False)
+        else:
+            db_utils.set_metadata_value("metrics_denied_total", original_denied)
+
+
+def test_metrics_whitelist_add_entries_merges_without_replacing():
+    original = db_utils.get_metrics_whitelist()
+    db_utils.update_metrics_whitelist(["127.0.0.1/32"])
+    try:
+        updated = db_utils.add_metrics_whitelist_entries(
+            ["10.0.0.0/8", "192.168.1.10", "10.0.0.0/8"]
+        )
+        assert updated == ["127.0.0.1/32", "10.0.0.0/8", "192.168.1.10/32"]
+    finally:
+        db_utils.update_metrics_whitelist(original)
+
+
+def test_metrics_whitelist_remove_entries_uses_normalized_values():
+    original = db_utils.get_metrics_whitelist()
+    db_utils.update_metrics_whitelist(["127.0.0.1/32", "10.0.0.0/8", "192.168.1.10/32"])
+    try:
+        updated = db_utils.remove_metrics_whitelist_entries(["192.168.1.10", "10.0.0.0/8"])
+        assert updated == ["127.0.0.1/32"]
+    finally:
+        db_utils.update_metrics_whitelist(original)

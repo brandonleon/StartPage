@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+if [ -d "/usr/startpage" ]; then
+    cd "/usr/startpage"
+fi
+
+exec python -m services.config_cli "$@"

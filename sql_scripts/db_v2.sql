@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS metadata
 );
 
 INSERT INTO metadata (id, name, value) VALUES ('1', 'db_version', '2.0.0');
+INSERT INTO metadata (id, name, value) VALUES ('2', 'metrics_whitelist', '127.0.0.1/32,::1/128');
 
 CREATE TABLE IF NOT EXISTS tags
 (id VARCHAR(36) not null primary key,

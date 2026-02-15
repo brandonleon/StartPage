@@ -18,6 +18,8 @@ algorithm that combines frequency and recency of access.
   automatic cleanup
 - **Configurable frecency** - Tune pagination size and the rank decay threshold
   without editing the database
+- **Prometheus endpoint** - Scrape `/metrics` for runtime and SQLite gauges with
+  IP/CIDR whitelist controls
 - **Docker support** - Easy deployment with persistent storage
 - **FastAPI backend** - Modern async Python web framework with SQLite storage
 
@@ -149,6 +151,29 @@ The algorithm ensures that:
   to pick up changes
 - Advanced deployments can point `STARTPAGE_CONFIG_PATH` at another writable
   TOML file if the default `config.toml` should live elsewhere.
+
+### Prometheus Metrics
+- StartPage exposes Prometheus-style metrics at `GET /metrics`.
+- Access is restricted to IP/CIDR entries stored in SQLite metadata (`metrics_whitelist`); default entries are `127.0.0.1/32` and `::1/128`.
+- Manage that whitelist from local CLI:
+  - `uv run python -m services.config_cli metrics-whitelist show`
+  - `uv run python -m services.config_cli metrics-whitelist add 10.0.0.0/8`
+  - `uv run python -m services.config_cli metrics-whitelist remove 10.0.0.0/8`
+  - `uv run python -m services.config_cli metrics-whitelist set 127.0.0.1/32 10.0.0.0/8`
+  - `uv run python -m services.config_cli metrics-whitelist reset`
+  - `uv run python -m services.config_cli metrics-whitelist clear`
+- In Docker, use the built-in wrapper command:
+  - `docker exec -it startpage startpage-config metrics-whitelist show`
+  - `docker exec -it startpage startpage-config metrics-whitelist add 10.0.0.0/8`
+- If you run behind nginx, forward client IPs with:
+  - `proxy_set_header X-Real-IP $remote_addr;`
+  - `proxy_set_header X-Forwarded-For $remote_addr;`
+- Forwarded headers are only trusted when the direct client IP matches
+  `STARTPAGE_TRUSTED_PROXY_CIDRS` (defaults to loopback only:
+  `127.0.0.1/32,::1/128`).
+- If nginx runs from another host/container network, set trusted proxy CIDRs
+  for StartPage (for example: `STARTPAGE_TRUSTED_PROXY_CIDRS=172.18.0.0/16`).
+- `/docs` includes the OpenAPI details for the `/metrics` route, including 403 behavior when a client IP is not whitelisted.
 
 ### Theme Switching
 

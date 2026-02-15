@@ -1,5 +1,6 @@
 import re
 import sqlite3
+from ipaddress import ip_address, ip_network
 from sqlite3 import IntegrityError
 from os import mkdir
 from os.path import dirname, isdir, join, realpath
@@ -16,6 +17,10 @@ db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 
 TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
+METRICS_WHITELIST_KEY = "metrics_whitelist"
+DEFAULT_METRICS_WHITELIST = ("127.0.0.1/32", "::1/128")
+METRICS_REQUESTS_TOTAL_KEY = "metrics_requests_total"
+METRICS_DENIED_TOTAL_KEY = "metrics_denied_total"
 
 
 def _get_connection() -> sqlite3.Connection:
@@ -69,6 +74,21 @@ def _ensure_expires_column() -> None:
         con.commit()
     finally:
         con.close()
+
+
+def _ensure_metrics_whitelist_metadata() -> None:
+    """Ensure metadata contains a default whitelist for the /metrics route."""
+    set_metadata_value(
+        METRICS_WHITELIST_KEY,
+        ",".join(DEFAULT_METRICS_WHITELIST),
+        overwrite=False,
+    )
+
+
+def _ensure_metrics_runtime_counters_metadata() -> None:
+    """Ensure metadata contains default values for /metrics runtime counters."""
+    set_metadata_value(METRICS_REQUESTS_TOTAL_KEY, "0", overwrite=False)
+    set_metadata_value(METRICS_DENIED_TOTAL_KEY, "0", overwrite=False)
 
 
 def _cleanup_orphaned_tags() -> int:
@@ -283,6 +303,196 @@ def get_temp_link_config() -> Dict[str, int | bool]:
     }
 
 
+def get_metrics_whitelist() -> List[str]:
+    """Return the configured CIDR/IP allow-list for the /metrics endpoint."""
+    raw = get_metadata_value(METRICS_WHITELIST_KEY)
+    if raw is None:
+        whitelist = list(DEFAULT_METRICS_WHITELIST)
+        update_metrics_whitelist(whitelist)
+        return whitelist
+    if not raw.strip():
+        return []
+
+    normalized: List[str] = []
+    for segment in raw.split(","):
+        token = segment.strip()
+        if not token:
+            continue
+        try:
+            value = _normalize_metrics_whitelist_entry(token)
+        except ValueError:
+            continue
+        if value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
+def update_metrics_whitelist(entries: List[str]) -> List[str]:
+    """Validate and persist the CIDR/IP allow-list for the /metrics endpoint."""
+    normalized: List[str] = []
+    for entry in entries:
+        value = _normalize_metrics_whitelist_entry(entry)
+        if value not in normalized:
+            normalized.append(value)
+    set_metadata_value(METRICS_WHITELIST_KEY, ",".join(normalized))
+    return normalized
+
+
+def add_metrics_whitelist_entries(entries: List[str]) -> List[str]:
+    """Add one or more CIDR/IP entries to the /metrics whitelist."""
+    existing = get_metrics_whitelist()
+    additions: List[str] = []
+    for entry in entries:
+        value = _normalize_metrics_whitelist_entry(entry)
+        if value in existing or value in additions:
+            continue
+        additions.append(value)
+    if not additions:
+        return existing
+    return update_metrics_whitelist(existing + additions)
+
+
+def remove_metrics_whitelist_entries(entries: List[str]) -> List[str]:
+    """Remove one or more CIDR/IP entries from the /metrics whitelist."""
+    existing = get_metrics_whitelist()
+    removals = {_normalize_metrics_whitelist_entry(entry) for entry in entries}
+    return update_metrics_whitelist([entry for entry in existing if entry not in removals])
+
+
+def reset_metrics_whitelist() -> List[str]:
+    """Reset the /metrics whitelist to local-only defaults."""
+    return update_metrics_whitelist(list(DEFAULT_METRICS_WHITELIST))
+
+
+def is_ip_allowed_for_metrics(client_ip: Optional[str]) -> bool:
+    """Check whether a client IP is allowed to read /metrics."""
+    if not client_ip:
+        return False
+    try:
+        remote_addr = ip_address(client_ip.strip())
+    except ValueError:
+        return False
+
+    whitelist = get_metrics_whitelist()
+    if not whitelist:
+        return False
+
+    for item in whitelist:
+        try:
+            network = ip_network(item, strict=False)
+        except ValueError:
+            continue
+        if remote_addr in network:
+            return True
+    return False
+
+
+def get_metrics_snapshot() -> Dict[str, float]:
+    """Return current database counts used by the Prometheus /metrics endpoint."""
+    purge_expired_links()
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(rank), 0) FROM links")
+    total_links, rank_sum = cur.fetchone()
+    cur.execute("SELECT COUNT(*) FROM links WHERE expires_at IS NOT NULL")
+    temp_links = cur.fetchone()[0] or 0
+    cur.execute("SELECT COUNT(*) FROM tags")
+    total_tags = cur.fetchone()[0] or 0
+    con.close()
+    return {
+        "total_links": float(total_links or 0),
+        "total_temporary_links": float(temp_links),
+        "total_tags": float(total_tags),
+        "rank_sum": float(rank_sum or 0),
+    }
+
+
+def _metadata_int(name: str) -> int:
+    raw = get_metadata_value(name)
+    if raw is None:
+        return 0
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, value)
+
+
+def get_metrics_runtime_counters() -> Dict[str, int]:
+    """Return shared /metrics request/deny counters."""
+    return {
+        "requests_total": _metadata_int(METRICS_REQUESTS_TOTAL_KEY),
+        "denied_total": _metadata_int(METRICS_DENIED_TOTAL_KEY),
+    }
+
+
+def increment_metrics_runtime_counters(*, denied: bool) -> Dict[str, int]:
+    """Atomically increment shared /metrics counters and return updated values."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+
+    # Ensure keys exist for first-run and upgraded databases.
+    cur.execute(
+        "INSERT OR IGNORE INTO metadata (id, name, value) VALUES (:id, :name, :value)",
+        {"id": str(uuid4()), "name": METRICS_REQUESTS_TOTAL_KEY, "value": "0"},
+    )
+    cur.execute(
+        "INSERT OR IGNORE INTO metadata (id, name, value) VALUES (:id, :name, :value)",
+        {"id": str(uuid4()), "name": METRICS_DENIED_TOTAL_KEY, "value": "0"},
+    )
+
+    cur.execute(
+        """
+        UPDATE metadata
+        SET value = CAST(CAST(COALESCE(NULLIF(value, ''), '0') AS INTEGER) + 1 AS TEXT)
+        WHERE name = :name
+        """,
+        {"name": METRICS_REQUESTS_TOTAL_KEY},
+    )
+    if denied:
+        cur.execute(
+            """
+            UPDATE metadata
+            SET value = CAST(CAST(COALESCE(NULLIF(value, ''), '0') AS INTEGER) + 1 AS TEXT)
+            WHERE name = :name
+            """,
+            {"name": METRICS_DENIED_TOTAL_KEY},
+        )
+
+    cur.execute(
+        "SELECT name, value FROM metadata WHERE name IN (:requests, :denied)",
+        {"requests": METRICS_REQUESTS_TOTAL_KEY, "denied": METRICS_DENIED_TOTAL_KEY},
+    )
+    rows = cur.fetchall()
+    con.commit()
+    con.close()
+
+    counters = {"requests_total": 0, "denied_total": 0}
+    for name, value in rows:
+        if name == METRICS_REQUESTS_TOTAL_KEY:
+            try:
+                counters["requests_total"] = max(0, int(value))
+            except (TypeError, ValueError):
+                counters["requests_total"] = 0
+        elif name == METRICS_DENIED_TOTAL_KEY:
+            try:
+                counters["denied_total"] = max(0, int(value))
+            except (TypeError, ValueError):
+                counters["denied_total"] = 0
+    return counters
+
+
+def _normalize_metrics_whitelist_entry(value: str) -> str:
+    entry = value.strip()
+    if not entry:
+        raise ValueError("Whitelist entry cannot be empty.")
+    if "/" in entry:
+        return str(ip_network(entry, strict=False))
+    host = ip_address(entry)
+    suffix = 32 if host.version == 4 else 128
+    return str(ip_network(f"{host}/{suffix}", strict=False))
+
+
 def update_temp_link_config(
     enabled: bool,
     default_ttl_hours: int,
@@ -384,6 +594,8 @@ def init_db(cur_version: str) -> None:
     con.close()
     app_config.ensure_config_file()
     _ensure_expires_column()
+    _ensure_metrics_whitelist_metadata()
+    _ensure_metrics_runtime_counters_metadata()
 
 
 # add link to database
@@ -495,6 +707,48 @@ def read_metadata() -> Dict[str, str]:
     d = {row["name"]: row["value"] for row in cur.fetchall()}
     con.close()
     return d
+
+
+def get_metadata_value(name: str) -> Optional[str]:
+    """Return a metadata value by key, or None if the key does not exist."""
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    cur.execute(
+        "SELECT value FROM metadata WHERE name = :name LIMIT 1",
+        {"name": name},
+    )
+    row = cur.fetchone()
+    con.close()
+    if row is None:
+        return None
+    return str(row[0])
+
+
+def set_metadata_value(name: str, value: str, *, overwrite: bool = True) -> None:
+    """
+    Persist a metadata key/value pair.
+
+    When overwrite is False, an existing key is preserved.
+    """
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    if overwrite:
+        cur.execute(
+            "UPDATE metadata SET value = :value WHERE name = :name",
+            {"name": name, "value": value},
+        )
+        if cur.rowcount == 0:
+            cur.execute(
+                "INSERT INTO metadata (id, name, value) VALUES (:id, :name, :value)",
+                {"id": str(uuid4()), "name": name, "value": value},
+            )
+    else:
+        cur.execute(
+            "INSERT OR IGNORE INTO metadata (id, name, value) VALUES (:id, :name, :value)",
+            {"id": str(uuid4()), "name": name, "value": value},
+        )
+    con.commit()
+    con.close()
 
 
 def get_frecency_config() -> Dict[str, int]:

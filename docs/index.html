@@ -72,6 +72,7 @@
             <li><strong>Theme controls</strong> - Force light or dark mode via URL parameters</li>
             <li><strong>Automatic pruning</strong> - Links with rank below 1 are automatically removed</li>
             <li><strong>Temporary links</strong> - Flag short-lived bookmarks that expire automatically (default 24 hours)</li>
+            <li><strong>Prometheus metrics</strong> - Scrape runtime and database gauges from <code>/metrics</code></li>
             <li><strong>SQLite storage</strong> - No external database required</li>
             <li><strong>FastAPI backend</strong> - High performance Python web framework</li>
             <li><strong>HTMX frontend</strong> - Dynamic updates without page reloads</li>
@@ -708,6 +709,69 @@ enabled = true
 default_ttl_hours = 12
 max_custom_hours = 72
 purge_interval_seconds = 900</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Prometheus Metrics Endpoint</h3>
+        <p>StartPage exposes a Prometheus-compatible endpoint at <code>/metrics</code>. Access is restricted by an IP/CIDR whitelist stored in the SQLite <code>metadata</code> table under <code>metrics_whitelist</code>.</p>
+        <p>Use the CLI helper to inspect and update that whitelist:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># Local development usage
+uv run python -m services.config_cli metrics-whitelist show
+
+# Append a new CIDR/IP without replacing existing entries
+uv run python -m services.config_cli metrics-whitelist add 10.0.0.0/8
+
+# Remove an existing CIDR/IP entry
+uv run python -m services.config_cli metrics-whitelist remove 10.0.0.0/8
+
+# Replace allow-list entries
+uv run python -m services.config_cli metrics-whitelist set 127.0.0.1/32 10.0.0.0/8
+
+# Reset to local-only defaults (127.0.0.1 and ::1)
+uv run python -m services.config_cli metrics-whitelist reset
+
+# Clear all entries (blocks all /metrics clients)
+uv run python -m services.config_cli metrics-whitelist clear
+
+# Docker shortcut (built into the image)
+docker exec -it startpage startpage-config metrics-whitelist add 10.0.0.0/8</code></pre>
+        <p>When running behind nginx, pass the real client address explicitly so whitelist checks work correctly:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>location / {
+    proxy_pass http://127.0.0.1:8001;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+}</code></pre>
+        <p>Forwarded headers are only trusted when the direct client IP matches <code>STARTPAGE_TRUSTED_PROXY_CIDRS</code> (default: <code>127.0.0.1/32,::1/128</code>).</p>
+        <p>If nginx runs from another host/container network, set trusted proxy CIDRs in StartPage, for example <code>STARTPAGE_TRUSTED_PROXY_CIDRS=172.18.0.0/16</code>.</p>
+        <p>The OpenAPI docs at <code>/docs</code> include the <code>/metrics</code> operation details and 403 behavior when the source IP is not whitelisted.</p>
+        <h4 class="h6 mt-3 mb-2">PromQL Quick Tests</h4>
+        <p>Replace <code>job="startpage"</code> if your Prometheus scrape job uses a different name.</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># Scrape status
+up{job="startpage"}
+
+# Core gauges
+startpage_links_total{job="startpage"}
+startpage_temp_links_total{job="startpage"}
+startpage_tags_total{job="startpage"}
+startpage_rank_sum{job="startpage"}
+
+# Temporary-link percentage
+100 * startpage_temp_links_total{job="startpage"} / clamp_min(startpage_links_total{job="startpage"}, 1)
+
+# /metrics traffic in last 24 hours
+increase(startpage_metrics_requests_total{job="startpage"}[24h])
+increase(startpage_metrics_denied_total{job="startpage"}[24h])
+
+# Denied percentage in last 24 hours
+100 * increase(startpage_metrics_denied_total{job="startpage"}[24h]) / clamp_min(increase(startpage_metrics_requests_total{job="startpage"}[24h]), 1)
+
+# App uptime (hours)
+startpage_metrics_uptime_seconds{job="startpage"} / 3600
+
+# Whitelist entry count
+startpage_metrics_whitelist_entries{job="startpage"}
+
+# Counter resets in 7 days (process restart hint)
+resets(startpage_metrics_requests_total{job="startpage"}[7d])</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Frecency Algorithm Parameters</h3>
         <p>The ranking formula is defined in <code>services/db_utils.py</code>:</p>

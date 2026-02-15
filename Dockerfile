@@ -23,4 +23,6 @@ RUN if [ "$ENVIRONMENT" = "production" ]; then \
     fi
 
 COPY . $WORKING_DIR
+COPY bin/startpage-config /usr/local/bin/startpage-config
+RUN chmod +x /usr/local/bin/startpage-config
 CMD ["./docker-entrypoint.sh"]

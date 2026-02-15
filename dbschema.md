@@ -60,10 +60,11 @@ Junction table for many-to-many relationship between links and tags.
 **Usage**: Tags allow organizing links into categories. Multiple tags can be assigned to a single link, and each tag can be applied to multiple links. Tags are automatically lowercased, whitespace is replaced with hyphens, non-alphanumeric characters are removed, and duplicates are deduped.
 
 ### metadata
-Schema version tracking for migrations.
+Schema version tracking and database-backed operational settings.
 
 - `name` (TEXT): Metadata key (e.g., 'db_version')
 - `value` (TEXT): Metadata value
+- `metrics_whitelist` uses comma-separated IP/CIDR values that gate access to `GET /metrics`
 
 ## Schema Versioning
 
