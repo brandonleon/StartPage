@@ -32,6 +32,7 @@ bump level:
 docker-replace:
   #!/usr/bin/env bash
   set -euo pipefail
+  git pull
 
   echo "Building new image..."
   docker build . -t startpage
