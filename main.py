@@ -57,6 +57,7 @@ SEARCH_PARTIALS = {
 
 METRICS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 METRICS_ACCESS_LOGGER = logging.getLogger("startpage.metrics")
+METRICS_RUNTIME_LOGGER = logging.getLogger("uvicorn.error")
 
 
 TEMP_LINK_PRESETS: Dict[str, Optional[int]] = {
@@ -196,6 +197,28 @@ def _request_ip_address(request: Request) -> Optional[str]:
     return None
 
 
+def _log_metrics_access(
+    *,
+    direct_ip: Optional[str],
+    forwarded_ip: Optional[str],
+    resolved_ip: Optional[str],
+    trusted_proxy: bool,
+    allowed: bool,
+) -> None:
+    message = (
+        '"/metrics" direct_ip=%s forwarded_ip=%s resolved_ip=%s trusted_proxy=%s allowed=%s'
+    )
+    args = (
+        direct_ip or "-",
+        forwarded_ip or "-",
+        resolved_ip or "-",
+        trusted_proxy,
+        allowed,
+    )
+    METRICS_ACCESS_LOGGER.info(message, *args)
+    METRICS_RUNTIME_LOGGER.info(message, *args)
+
+
 def _render_metrics_payload(
     snapshot: Dict[str, float],
     *,
@@ -306,13 +329,12 @@ async def metrics(request: Request):
     trusted_proxy = _is_trusted_proxy(direct_ip)
     request_ip = _request_ip_address(request)
     is_allowed = db_utils.is_ip_allowed_for_metrics(request_ip)
-    METRICS_ACCESS_LOGGER.info(
-        '"/metrics" direct_ip=%s forwarded_ip=%s resolved_ip=%s trusted_proxy=%s allowed=%s',
-        direct_ip or "-",
-        forwarded_ip or "-",
-        request_ip or "-",
-        trusted_proxy,
-        is_allowed,
+    _log_metrics_access(
+        direct_ip=direct_ip,
+        forwarded_ip=forwarded_ip,
+        resolved_ip=request_ip,
+        trusted_proxy=trusted_proxy,
+        allowed=is_allowed,
     )
     counters = db_utils.increment_metrics_runtime_counters(denied=not is_allowed)
     if not is_allowed:
