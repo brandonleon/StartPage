@@ -691,6 +691,7 @@ async def edit_link(
     link_id,
     link_name: str = Form(...),
     link_url: str = Form(...),
+    tag_names: str = Form(""),
     is_temporary: Optional[str] = Form(None),
     temporary_preset: str = Form("24h"),
     temporary_custom_hours: Optional[str] = Form(None),
@@ -699,6 +700,10 @@ async def edit_link(
         is_temporary, temporary_preset, temporary_custom_hours
     )
     db_utils.save_link(link_name, link_url, link_id, expires_at)
+    if tag_names.strip():
+        tags = [tag.strip() for tag in tag_names.split(",") if tag.strip()]
+        for tag in tags:
+            db_utils.add_tag_to_link(link_id, tag)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
 
@@ -969,7 +974,7 @@ async def add_tag(link_id: str, tag_name: str = Form(...)):
         tags = [tag.strip() for tag in tag_name.split(",") if tag.strip()]
         for tag in tags:
             db_utils.add_tag_to_link(link_id, tag)
-    return RedirectResponse(app.url_path_for("root"), status_code=302)
+    return RedirectResponse(app.url_path_for("edit", link_id=link_id), status_code=303)
 
 
 @app.delete("/link/{link_id}/tag/{tag_id}", response_class=HTMLResponse)

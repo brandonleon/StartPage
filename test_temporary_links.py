@@ -73,3 +73,48 @@ async def test_duplicate_check_endpoint_returns_existing_details():
         assert response_none.text.strip() == ""
 
     db_utils.delete_link(link_id)
+
+
+@pytest.mark.anyio
+async def test_edit_route_saves_new_tags_from_main_form():
+    original_name = f"EditTagFlow-{uuid4()}"
+    original_url = f"https://edit-tag-flow.example/{uuid4()}"
+    link_id = db_utils.save_link(original_name, original_url)
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            f"/edit/{link_id}",
+            data={
+                "link_name": f"{original_name}-updated",
+                "link_url": original_url,
+                "tag_names": "team docs, Release-Notes",
+                "temporary_preset": "default",
+            },
+        )
+    assert response.status_code == 302
+    tags = {tag["name"] for tag in db_utils.get_tags_for_link(link_id)}
+    assert {"team-docs", "release-notes"}.issubset(tags)
+
+    db_utils.delete_link(link_id)
+
+
+@pytest.mark.anyio
+async def test_quick_add_tag_redirects_back_to_edit_page():
+    link_name = f"QuickTag-{uuid4()}"
+    link_url = f"https://quick-tag.example/{uuid4()}"
+    link_id = db_utils.save_link(link_name, link_url)
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            f"/link/{link_id}/tag",
+            data={"tag_name": "quick-add"},
+            follow_redirects=False,
+        )
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/edit/{link_id}"
+    tags = {tag["name"] for tag in db_utils.get_tags_for_link(link_id)}
+    assert "quick-add" in tags
+
+    db_utils.delete_link(link_id)

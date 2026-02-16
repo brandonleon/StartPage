@@ -16,9 +16,21 @@
                         <label for="link_name" class="form-label required">Link name</label>
                         <input type="text" class="form-control" id="link_name" name="link_name" value="{{ link.name }}" required>
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label for="link_url" class="form-label required">URL</label>
                         <input type="url" class="form-control" id="link_url" name="link_url" value="{{ link.url }}" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="tag_names" class="form-label">Add tags (optional)</label>
+                        <input type="text"
+                               class="form-control"
+                               id="tag_names"
+                               name="tag_names"
+                               placeholder="e.g., personal, work, project-name"
+                               autocomplete="off"
+                               data-tag-input
+                               data-tag-suggestions='{{ ((all_tags | default([])) | map(attribute="name") | list) | tojson | safe }}'>
+                        <div class="form-text">Separate multiple tags with commas. Tags are lowercased, spaces become hyphens, and only letters, numbers, or hyphens are kept.</div>
                     </div>
                     {% if temp_links_enabled %}
                     <div class="mb-4" data-temp-link-section>
@@ -103,7 +115,7 @@
 
                     <form action="/link/{{ link.id }}/tag" method="post">
                         <div class="mb-3">
-                            <label for="tag_name" class="form-label">Add tag</label>
+                            <label for="tag_name" class="form-label">Quick add tag</label>
                             <input type="text"
                                    class="form-control"
                                    id="tag_name"
@@ -113,9 +125,9 @@
                                    data-tag-input
                                    data-tag-suggestions='{{ ((all_tags | default([])) | map(attribute="name") | list) | tojson | safe }}'
                                    required>
-                            <div class="form-text">Separate multiple tags with commas. Tags are lowercased, spaces become hyphens, and only letters, numbers, or hyphens are kept.</div>
+                            <div class="form-text">Adds tags immediately and stays on this page.</div>
                         </div>
-                        <button class="btn btn-outline-primary" type="submit">Add tag</button>
+                        <button class="btn btn-outline-primary" type="submit">Add tag now</button>
                     </form>
 
                     {% if all_tags %}

@@ -121,9 +121,10 @@ The algorithm ensures that:
 
 ### Managing Tags
 
-- **Add tags**: Include them when creating/editing links in the tag field
+- **Add tags**: Include them when creating links, or add them from the edit form and save changes
 - **View all tags**: Visit `/tags` to see all tags and their usage counts
 - **Filter by tag**: Click a tag to view all associated links
+- **Quick add while editing**: Use the quick-add field on `/edit/{link_id}` to add tags immediately and stay on the edit page
 - **Remove tags**: Edit a link and click the × on any tag badge
 
 ### Search and Browse
