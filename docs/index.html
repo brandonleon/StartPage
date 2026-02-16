@@ -10,35 +10,121 @@
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="../static/css/theme.css">
     <style>
+        html[data-theme="latte"] {
+            --docs-navbar-bg: rgba(239, 241, 245, 0.82);
+            --docs-navbar-border: rgba(76, 79, 105, 0.15);
+            --docs-hero-gradient-start: rgba(30, 102, 245, 0.2);
+            --docs-hero-gradient-end: rgba(64, 160, 43, 0.2);
+        }
+
+        html[data-theme="mocha"] {
+            --docs-navbar-bg: rgba(30, 30, 46, 0.84);
+            --docs-navbar-border: rgba(205, 214, 244, 0.18);
+            --docs-hero-gradient-start: rgba(137, 180, 250, 0.24);
+            --docs-hero-gradient-end: rgba(166, 227, 161, 0.2);
+        }
+
+        body {
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -20vmax;
+            background:
+                radial-gradient(circle at 15% 20%, var(--docs-hero-gradient-start), transparent 45%),
+                radial-gradient(circle at 80% 15%, var(--docs-hero-gradient-end), transparent 40%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
         .docs-navbar {
-            background-color: rgba(255, 255, 255, 0.85);
+            background-color: var(--docs-navbar-bg);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--docs-navbar-border);
+        }
+
+        .docs-kicker {
+            letter-spacing: 0.12em;
+        }
+
+        .docs-context {
+            border: 1px solid var(--ctp-card-border);
+            background: color-mix(in srgb, var(--ctp-overlay) 76%, transparent);
+            color: var(--ctp-text);
+        }
+
+        .table-dark {
+            --bs-table-bg: transparent;
+            --bs-table-color: var(--ctp-text);
+            --bs-table-border-color: var(--ctp-card-border);
+            --bs-table-striped-color: var(--ctp-text);
+            --bs-table-striped-bg: var(--ctp-overlay);
+            --bs-table-hover-color: var(--ctp-text);
+            --bs-table-hover-bg: var(--ctp-overlay);
+        }
+
+        .list-group-numbered .list-group-item {
+            background: transparent;
+            border-color: var(--ctp-card-border);
+        }
+
+        pre.bg-dark {
+            background: color-mix(in srgb, var(--ctp-surface) 92%, black 8%) !important;
+            border: 1px solid var(--ctp-card-border);
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+        }
+
+        pre.text-light,
+        pre code {
+            color: var(--ctp-text) !important;
+        }
+
+        @media (max-width: 991px) {
+            .docs-actions {
+                margin-top: 0.75rem;
+            }
         }
     </style>
-    <title>StartPage - Administrator Guide</title>
+    <title>StartPage - Project Documentation</title>
 </head>
 <body>
 
 <nav class="navbar navbar-expand-lg sticky-top py-3 docs-navbar">
     <div class="container">
-        <a class="navbar-brand fw-semibold" href="/">StartPage</a>
-        <div class="collapse navbar-collapse">
+        <a class="navbar-brand fw-semibold" href="#">StartPage Docs</a>
+        <div class="navbar-collapse d-flex justify-content-between align-items-center flex-wrap gap-2">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link" href="/">Back to App</a>
+                    <a class="nav-link" href="#routes">Route Reference</a>
                 </li>
             </ul>
+            <div class="docs-actions d-flex align-items-center gap-2">
+                <button class="theme-toggle" type="button" aria-label="Toggle theme" data-theme-toggle>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                        <circle cx="12" cy="12" r="4"></circle>
+                    </svg>
+                    <span class="small" data-theme-toggle-label>Dark</span>
+                </button>
+            </div>
         </div>
     </div>
 </nav>
 
 <div class="container app-shell">
     <section class="hero glass-panel mb-4">
-        <p class="text-uppercase text-muted small mb-1">Documentation</p>
-        <h1>Administrator Guide</h1>
-        <p>Complete deployment and administration guide for StartPage.</p>
+        <p class="docs-kicker text-uppercase text-muted small mb-1">Project Documentation</p>
+        <h1>StartPage Administrator Guide</h1>
+        <p>Deployment, operations, and maintenance guidance for the StartPage project.</p>
+        <div class="alert docs-context mt-3 mb-0 text-start" role="alert">
+            <strong>Route clarification:</strong> in a running StartPage app, <code>/docs</code> serves FastAPI's OpenAPI UI (Swagger). This file (<code>docs/index.html</code>) is the static project guide used on the repository/GitHub Pages documentation site.
+            See FastAPI metadata docs: <a href="https://fastapi.tiangolo.com/tutorial/metadata/#metadata-for-api" target="_blank" rel="noopener noreferrer">metadata for API</a>.
+        </div>
     </section>
 
     <!-- Table of Contents -->
@@ -261,7 +347,7 @@ http://localhost:8080/?embed=true&theme=light&tag=personal</code></pre>
         <h2 class="h3 mb-3">Docker Deployment</h2>
 
         <h3 class="h5 mt-4 mb-2">Quick Start</h3>
-        <pre class="bg-dark text-light p-3 rounded"><code>make dockerbuild</code></pre>
+        <pre class="bg-dark text-light p-3 rounded"><code>just dockerbuild</code></pre>
         <p class="small text-muted">This command builds the container and runs it with persistent storage at <code>~/.config/startpage</code></p>
 
         <h3 class="h5 mt-4 mb-2">Manual Docker Commands</h3>
@@ -310,23 +396,25 @@ docker rm -f startpage</code></pre>
         <ul>
             <li>Python 3.10 or higher</li>
             <li><a href="https://github.com/astral-sh/uv" target="_blank">uv</a> package manager</li>
+            <li><a href="https://just.systems/" target="_blank">just</a> command runner (for <code>justfile</code> recipes)</li>
         </ul>
+        <p class="small text-muted">Install <code>just</code> using your platform package manager: <a href="https://just.systems/man/en/packages.html" target="_blank" rel="noopener noreferrer">just.systems/man/en/packages.html</a></p>
 
         <h3 class="h5 mt-4 mb-2">Installation</h3>
         <pre class="bg-dark text-light p-3 rounded"><code># Install dependencies
 uv sync
 # or
-make install</code></pre>
+just install</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Running Locally</h3>
 
         <p><strong>Development mode (with hot reload):</strong></p>
-        <pre class="bg-dark text-light p-3 rounded"><code>make develop
+        <pre class="bg-dark text-light p-3 rounded"><code>just develop
 # or
 uv run uvicorn main:app --reload</code></pre>
 
         <p><strong>Production mode (in screen session):</strong></p>
-        <pre class="bg-dark text-light p-3 rounded"><code>make run</code></pre>
+        <pre class="bg-dark text-light p-3 rounded"><code>just run</code></pre>
         <p class="small text-muted">This runs the app in a detached screen session. Use <code>screen -r</code> to attach.</p>
 
         <p><strong>Standard run:</strong></p>
@@ -639,13 +727,23 @@ docker start startpage</code></pre>
                     <td>Feature guide, daily usage tips, frecency explanation, and workflow documentation</td>
                 </tr>
                 <tr>
-                    <td><code>/docs</code> (this page)</td>
-                    <td>Administrators</td>
-                    <td>Deployment, configuration, database management, migrations, and troubleshooting</td>
+                    <td><code>/docs</code></td>
+                    <td>Developers / API Consumers</td>
+                    <td>FastAPI Swagger UI generated from the OpenAPI schema and API metadata</td>
+                </tr>
+                <tr>
+                    <td><code>/redoc</code></td>
+                    <td>Developers / API Consumers</td>
+                    <td>Alternative ReDoc view of the same OpenAPI schema</td>
+                </tr>
+                <tr>
+                    <td><code>docs/index.html</code></td>
+                    <td>Project Maintainers</td>
+                    <td>Static administrator guide intended for repository/GitHub Pages documentation</td>
                 </tr>
             </tbody>
         </table>
-        <p class="text-muted small mb-0">Note: The <code>/docs</code> route serves a static HTML file that powers the GitHub Pages documentation site for the project.</p>
+        <p class="text-muted small mb-0">Note: app route <code>/docs</code> is the FastAPI docs UI. This static page lives in <code>docs/index.html</code> for the project documentation site.</p>
     </section>
 
     <!-- Configuration -->
@@ -751,7 +849,7 @@ docker exec -it startpage startpage-config trusted-proxies add 172.17.0.1/32</co
         <p>Forwarded headers are only trusted when the direct client IP matches the trusted proxy CIDR list (default: <code>127.0.0.1/32,::1/128</code>).</p>
         <p>If nginx runs from another host/container network, add that proxy source CIDR with the CLI (for example <code>trusted-proxies add 172.18.0.0/16</code>).</p>
         <p>Trusted proxy CIDR updates apply immediately because <code>/metrics</code> reads these values from metadata for each request.</p>
-        <p>The OpenAPI docs at <code>/docs</code> include the <code>/metrics</code> operation details and 403 behavior when the source IP is not whitelisted.</p>
+        <p>The OpenAPI docs at <code>/docs</code> (and <code>/redoc</code>) include the <code>/metrics</code> operation details and 403 behavior when the source IP is not whitelisted.</p>
         <h4 class="h6 mt-3 mb-2">PromQL Quick Tests</h4>
         <p>Replace <code>job="startpage"</code> if your Prometheus scrape job uses a different name.</p>
         <pre class="bg-dark text-light p-3 rounded"><code># Scrape status
@@ -890,7 +988,7 @@ resets(startpage_metrics_requests_total{job="startpage"}[7d])</code></pre>
 
     <!-- Footer -->
     <section class="text-center py-4 text-muted">
-        <p>StartPage v2.0.0 - Administrator Guide</p>
+        <p>StartPage v2.0.0 - Project Administrator Guide</p>
         <p class="small">Last updated: February 2026</p>
     </section>
 </div>
@@ -898,6 +996,7 @@ resets(startpage_metrics_requests_total{job="startpage"}[7d])</code></pre>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script>
+<script src="../static/js/theme.js"></script>
 
 </body>
 </html>

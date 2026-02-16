@@ -44,7 +44,15 @@ if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
 
 # Create the app
-app = FastAPI()
+app = FastAPI(
+    title=str(config["app_name"]),
+    version=str(config["app_version"]),
+    summary="Self-hosted frecency-based link manager API.",
+    description=(
+        "StartPage exposes routes for links, tags, imports/exports, configuration, "
+        "and Prometheus metrics. This OpenAPI schema powers the in-app /docs route."
+    ),
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # set up the templates
