@@ -1,6 +1,6 @@
 import asyncio
 import contextlib
-import os
+import logging
 import sqlite3
 from datetime import datetime
 from ipaddress import ip_address, ip_network
@@ -56,8 +56,8 @@ SEARCH_PARTIALS = {
 }
 
 METRICS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
-TRUSTED_PROXY_CIDRS_ENV = "STARTPAGE_TRUSTED_PROXY_CIDRS"
-DEFAULT_TRUSTED_PROXY_CIDRS = ("127.0.0.1/32", "::1/128")
+METRICS_ACCESS_LOGGER = logging.getLogger("startpage.metrics")
+METRICS_RUNTIME_LOGGER = logging.getLogger("uvicorn.error")
 
 
 TEMP_LINK_PRESETS: Dict[str, Optional[int]] = {
@@ -142,15 +142,7 @@ def _build_temp_link_form(
     }
 
 def _trusted_proxy_entries() -> List[str]:
-    raw = os.getenv(TRUSTED_PROXY_CIDRS_ENV, "").strip()
-    if not raw:
-        return list(DEFAULT_TRUSTED_PROXY_CIDRS)
-    entries: List[str] = []
-    for token in raw.split(","):
-        value = token.strip()
-        if value:
-            entries.append(value)
-    return entries
+    return db_utils.get_trusted_proxy_cidrs()
 
 
 def _is_trusted_proxy(client_ip: Optional[str]) -> bool:
@@ -203,6 +195,28 @@ def _request_ip_address(request: Request) -> Optional[str]:
     if request.client:
         return request.client.host
     return None
+
+
+def _log_metrics_access(
+    *,
+    direct_ip: Optional[str],
+    forwarded_ip: Optional[str],
+    resolved_ip: Optional[str],
+    trusted_proxy: bool,
+    allowed: bool,
+) -> None:
+    message = (
+        '"/metrics" direct_ip=%s forwarded_ip=%s resolved_ip=%s trusted_proxy=%s allowed=%s'
+    )
+    args = (
+        direct_ip or "-",
+        forwarded_ip or "-",
+        resolved_ip or "-",
+        trusted_proxy,
+        allowed,
+    )
+    METRICS_ACCESS_LOGGER.info(message, *args)
+    METRICS_RUNTIME_LOGGER.info(message, *args)
 
 
 def _render_metrics_payload(
@@ -310,8 +324,18 @@ app.state.metrics_started_at = int(time())
     responses={403: {"description": "Client IP is not allowed by the metrics whitelist."}},
 )
 async def metrics(request: Request):
+    direct_ip = request.client.host if request.client else None
+    forwarded_ip = _forwarded_client_ip(request)
+    trusted_proxy = _is_trusted_proxy(direct_ip)
     request_ip = _request_ip_address(request)
     is_allowed = db_utils.is_ip_allowed_for_metrics(request_ip)
+    _log_metrics_access(
+        direct_ip=direct_ip,
+        forwarded_ip=forwarded_ip,
+        resolved_ip=request_ip,
+        trusted_proxy=trusted_proxy,
+        allowed=is_allowed,
+    )
     counters = db_utils.increment_metrics_runtime_counters(denied=not is_allowed)
     if not is_allowed:
         raise HTTPException(status_code=403, detail="Metrics access denied for this IP.")

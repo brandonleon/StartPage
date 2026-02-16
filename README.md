@@ -155,6 +155,7 @@ The algorithm ensures that:
 ### Prometheus Metrics
 - StartPage exposes Prometheus-style metrics at `GET /metrics`.
 - Access is restricted to IP/CIDR entries stored in SQLite metadata (`metrics_whitelist`); default entries are `127.0.0.1/32` and `::1/128`.
+- Trusted proxy CIDRs used for forwarded `/metrics` headers are also stored in SQLite metadata (`trusted_proxy_cidrs`) and default to `127.0.0.1/32` and `::1/128`.
 - Manage that whitelist from local CLI:
   - `uv run python -m services.config_cli metrics-whitelist show`
   - `uv run python -m services.config_cli metrics-whitelist add 10.0.0.0/8`
@@ -162,17 +163,27 @@ The algorithm ensures that:
   - `uv run python -m services.config_cli metrics-whitelist set 127.0.0.1/32 10.0.0.0/8`
   - `uv run python -m services.config_cli metrics-whitelist reset`
   - `uv run python -m services.config_cli metrics-whitelist clear`
+- Manage trusted proxy CIDRs used for forwarded `/metrics` headers:
+  - `uv run python -m services.config_cli trusted-proxies show`
+  - `uv run python -m services.config_cli trusted-proxies add 172.17.0.1/32`
+  - `uv run python -m services.config_cli trusted-proxies remove 172.17.0.1/32`
+  - `uv run python -m services.config_cli trusted-proxies set 127.0.0.1/32 ::1/128 172.17.0.1/32`
+  - `uv run python -m services.config_cli trusted-proxies reset`
+  - `uv run python -m services.config_cli trusted-proxies clear`
 - In Docker, use the built-in wrapper command:
   - `docker exec -it startpage startpage-config metrics-whitelist show`
   - `docker exec -it startpage startpage-config metrics-whitelist add 10.0.0.0/8`
+  - `docker exec -it startpage startpage-config trusted-proxies show`
+  - `docker exec -it startpage startpage-config trusted-proxies add 172.17.0.1/32`
 - If you run behind nginx, forward client IPs with:
   - `proxy_set_header X-Real-IP $remote_addr;`
   - `proxy_set_header X-Forwarded-For $remote_addr;`
-- Forwarded headers are only trusted when the direct client IP matches
-  `STARTPAGE_TRUSTED_PROXY_CIDRS` (defaults to loopback only:
-  `127.0.0.1/32,::1/128`).
-- If nginx runs from another host/container network, set trusted proxy CIDRs
-  for StartPage (for example: `STARTPAGE_TRUSTED_PROXY_CIDRS=172.18.0.0/16`).
+- Forwarded headers are only trusted when the direct client IP matches the
+  trusted proxy CIDR list (defaults to loopback only: `127.0.0.1/32,::1/128`).
+- If nginx runs from another host/container network, add that CIDR using
+  `trusted-proxies add` (for example: `172.18.0.0/16`).
+- Trusted proxy CIDR changes apply immediately because `/metrics` reads them
+  from metadata per request; no restart is required.
 - `/docs` includes the OpenAPI details for the `/metrics` route, including 403 behavior when a client IP is not whitelisted.
 
 ### Theme Switching
