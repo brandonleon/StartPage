@@ -118,3 +118,64 @@ async def test_quick_add_tag_redirects_back_to_edit_page():
     assert "quick-add" in tags
 
     db_utils.delete_link(link_id)
+
+
+@pytest.mark.anyio
+async def test_edit_route_can_attach_existing_tag_to_untagged_link():
+    shared_tag = f"shared-tag-{uuid4().hex[:6]}"
+    source_id = db_utils.save_link(
+        f"TagSource-{uuid4()}",
+        f"https://tag-source.example/{uuid4()}",
+    )
+    target_name = f"TagTarget-{uuid4()}"
+    target_url = f"https://tag-target.example/{uuid4()}"
+    target_id = db_utils.save_link(target_name, target_url)
+    db_utils.add_tag_to_link(source_id, shared_tag)
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            f"/edit/{target_id}",
+            data={
+                "link_name": target_name,
+                "link_url": target_url,
+                "tag_names": f"{shared_tag}, ",
+                "temporary_preset": "default",
+            },
+        )
+    assert response.status_code == 302
+    target_tags = {tag["name"] for tag in db_utils.get_tags_for_link(target_id)}
+    assert shared_tag in target_tags
+
+    db_utils.delete_link(source_id)
+    db_utils.delete_link(target_id)
+
+
+@pytest.mark.anyio
+async def test_edit_route_duplicate_name_or_url_returns_validation_error():
+    link_a_name = f"EditDuplicateA-{uuid4()}"
+    link_a_url = f"https://edit-duplicate-a.example/{uuid4()}"
+    link_a_id = db_utils.save_link(link_a_name, link_a_url)
+
+    link_b_name = f"EditDuplicateB-{uuid4()}"
+    link_b_url = f"https://edit-duplicate-b.example/{uuid4()}"
+    link_b_id = db_utils.save_link(link_b_name, link_b_url)
+
+    transport = httpx.ASGITransport(app=main.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            f"/edit/{link_b_id}",
+            data={
+                "link_name": link_b_name,
+                "link_url": link_a_url,
+                "tag_names": "should-not-save",
+                "temporary_preset": "default",
+            },
+        )
+    assert response.status_code == 400
+    assert "already exists" in response.text
+    tags = {tag["name"] for tag in db_utils.get_tags_for_link(link_b_id)}
+    assert "should-not-save" not in tags
+
+    db_utils.delete_link(link_a_id)
+    db_utils.delete_link(link_b_id)

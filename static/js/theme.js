@@ -276,6 +276,61 @@ function initTagSuggestions() {
     });
 }
 
+function initTagChoices() {
+    const normalizeTag = (value) => {
+        if (!value) {
+            return "";
+        }
+        return String(value)
+            .toLowerCase()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]/g, "")
+            .replace(/-+/g, "-")
+            .replace(/^-+|-+$/g, "");
+    };
+
+    document.querySelectorAll("[data-tag-choice]").forEach((button) => {
+        if (button.dataset.tagChoiceBound === "true") {
+            return;
+        }
+        button.dataset.tagChoiceBound = "true";
+
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            const targetId = button.dataset.tagTarget;
+            if (!targetId) {
+                return;
+            }
+            const input = document.getElementById(targetId);
+            if (!input) {
+                return;
+            }
+
+            const picked = normalizeTag(button.dataset.tagChoice || "");
+            if (!picked) {
+                return;
+            }
+
+            const committed = (input.value || "")
+                .split(",")
+                .map((part) => normalizeTag(part))
+                .filter((part) => part.length > 0);
+            const tags = [...new Set(committed)];
+            if (!tags.includes(picked)) {
+                tags.push(picked);
+            }
+
+            const nextValue = `${tags.join(", ")}, `;
+            input.value = nextValue;
+            input.focus();
+            if (typeof input.setSelectionRange === "function") {
+                input.setSelectionRange(nextValue.length, nextValue.length);
+            }
+            input.dispatchEvent(new Event("input"));
+        });
+    });
+}
+
 function initTagRenameControls() {
     document.querySelectorAll("[data-tag-rename-toggle]").forEach((button) => {
         if (button.dataset.tagRenameBound === "true") {
@@ -405,6 +460,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initSearchClear();
     initBulkSelection();
     initTagSuggestions();
+    initTagChoices();
     initTagRenameControls();
     initTemporaryLinkControls();
     initFilterResetBehavior();
@@ -413,6 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
 document.body.addEventListener("htmx:afterSwap", () => {
     initBulkSelection();
     initTagSuggestions();
+    initTagChoices();
     initTagRenameControls();
     initTemporaryLinkControls();
     initFilterResetBehavior();
