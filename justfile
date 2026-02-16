@@ -1,13 +1,5 @@
-help:
-  @echo "install - install dependencies via uv."
-  @echo "dockerbuild - build and run the container with persistent sqlite storage."
-  @echo "run - run the application via uvicorn in a screen session."
-  @echo "develop - run the application via uvicorn with autoreload."
-  @echo "remove - remove the uv-managed virtual environment; links database remains intact."
-  @echo "docker-replace - rebuild image and replace running startpage container."
-  @echo "bump <level> - bump the project version."
-  @echo "release <message> - commit, tag, and push the current version."
-  @echo "bump-release <level> <message> - bump version and release."
+restart:
+  docker restart startpage
 
 install:
   uv sync
