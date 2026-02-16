@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import logging
 import sqlite3
 from datetime import datetime
 from ipaddress import ip_address, ip_network
@@ -55,6 +56,7 @@ SEARCH_PARTIALS = {
 }
 
 METRICS_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
+METRICS_ACCESS_LOGGER = logging.getLogger("startpage.metrics")
 
 
 TEMP_LINK_PRESETS: Dict[str, Optional[int]] = {
@@ -299,8 +301,19 @@ app.state.metrics_started_at = int(time())
     responses={403: {"description": "Client IP is not allowed by the metrics whitelist."}},
 )
 async def metrics(request: Request):
+    direct_ip = request.client.host if request.client else None
+    forwarded_ip = _forwarded_client_ip(request)
+    trusted_proxy = _is_trusted_proxy(direct_ip)
     request_ip = _request_ip_address(request)
     is_allowed = db_utils.is_ip_allowed_for_metrics(request_ip)
+    METRICS_ACCESS_LOGGER.info(
+        '"/metrics" direct_ip=%s forwarded_ip=%s resolved_ip=%s trusted_proxy=%s allowed=%s',
+        direct_ip or "-",
+        forwarded_ip or "-",
+        request_ip or "-",
+        trusted_proxy,
+        is_allowed,
+    )
     counters = db_utils.increment_metrics_runtime_counters(denied=not is_allowed)
     if not is_allowed:
         raise HTTPException(status_code=403, detail="Metrics access denied for this IP.")

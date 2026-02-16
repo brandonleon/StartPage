@@ -123,6 +123,21 @@ async def test_metrics_route_uses_forwarded_headers_from_runtime_settings():
 
 
 @pytest.mark.anyio
+async def test_metrics_route_logs_forwarded_and_resolved_ips(caplog):
+    caplog.set_level("INFO", logger="startpage.metrics")
+    db_utils.update_trusted_proxy_cidrs(["172.20.0.0/16"])
+    db_utils.update_metrics_whitelist(["10.0.0.0/8"])
+    transport = httpx.ASGITransport(app=main.app, client=("172.20.0.10", 4321))
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/metrics", headers={"x-forwarded-for": "10.2.3.4"})
+    assert response.status_code == 200
+    assert any(
+        "forwarded_ip=10.2.3.4" in record.message and "resolved_ip=10.2.3.4" in record.message
+        for record in caplog.records
+    )
+
+
+@pytest.mark.anyio
 async def test_metrics_route_updates_shared_runtime_counters():
     db_utils.set_metadata_value("metrics_requests_total", "0")
     db_utils.set_metadata_value("metrics_denied_total", "0")
