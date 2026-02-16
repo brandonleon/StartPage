@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
-from ipaddress import ip_network
 from os import environ
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional
 
 import tomlkit
 
@@ -17,7 +16,6 @@ DEFAULT_TEMP_LINK_ENABLED = True
 DEFAULT_TEMP_LINK_TTL_HOURS = 24
 DEFAULT_TEMP_LINK_MAX_CUSTOM_HOURS = 24 * 30
 DEFAULT_TEMP_LINK_PURGE_INTERVAL_SECONDS = 600
-DEFAULT_TRUSTED_PROXY_CIDRS = ("127.0.0.1/32", "::1/128")
 
 CONFIG_ENV_VAR = "STARTPAGE_CONFIG_PATH"
 ENV_BATCH = "STARTPAGE_BATCH_SIZE"
@@ -26,7 +24,6 @@ ENV_TEMP_ENABLED = "STARTPAGE_TEMP_LINKS_ENABLED"
 ENV_TEMP_DEFAULT = "STARTPAGE_TEMP_LINK_DEFAULT_TTL_HOURS"
 ENV_TEMP_MAX = "STARTPAGE_TEMP_LINK_MAX_CUSTOM_HOURS"
 ENV_TEMP_PURGE = "STARTPAGE_TEMP_LINK_PURGE_INTERVAL_SECONDS"
-ENV_TRUSTED_PROXY_CIDRS = "STARTPAGE_TRUSTED_PROXY_CIDRS"
 
 _DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.toml"
 _CONFIG_PATH = Path(environ.get(CONFIG_ENV_VAR, _DEFAULT_CONFIG_PATH))
@@ -61,15 +58,9 @@ class TempLinkConfig:
 
 
 @dataclass(frozen=True)
-class MetricsConfig:
-    trusted_proxy_cidrs: Tuple[str, ...] = DEFAULT_TRUSTED_PROXY_CIDRS
-
-
-@dataclass(frozen=True)
 class RuntimeConfig:
     frecency: FrecencyConfig = field(default_factory=FrecencyConfig)
     temp_links: TempLinkConfig = field(default_factory=TempLinkConfig)
-    metrics: MetricsConfig = field(default_factory=MetricsConfig)
 
     def as_dict(self) -> Dict[str, Any]:
         """Return a dict representation used by template/context builders."""
@@ -117,9 +108,6 @@ def persist_runtime_config(config: RuntimeConfig, *, path: Optional[Path] = None
         "max_custom_hours": config.temp_links.max_custom_hours,
         "purge_interval_seconds": config.temp_links.purge_interval_seconds,
     }
-    doc["metrics"] = {
-        "trusted_proxy_cidrs": list(config.metrics.trusted_proxy_cidrs),
-    }
     with output_path.open("w", encoding="utf-8") as handle:
         handle.write(tomlkit.dumps(doc))
     global _RUNTIME_CONFIG
@@ -164,20 +152,6 @@ def update_temp_link_settings(
     return persist_runtime_config(updated)
 
 
-def normalize_trusted_proxy_cidrs(entries: Sequence[str]) -> Tuple[str, ...]:
-    return _normalize_trusted_proxy_cidrs(entries)
-
-
-def update_metrics_settings(trusted_proxy_cidrs: Sequence[str]) -> RuntimeConfig:
-    """Replace metrics settings and persist them."""
-    config = get_runtime_config()
-    updated = replace(
-        config,
-        metrics=MetricsConfig(trusted_proxy_cidrs=normalize_trusted_proxy_cidrs(trusted_proxy_cidrs)),
-    )
-    return persist_runtime_config(updated)
-
-
 def _load_runtime_config(path: Path) -> RuntimeConfig:
     if path.exists():
         with path.open("r", encoding="utf-8") as handle:
@@ -187,8 +161,7 @@ def _load_runtime_config(path: Path) -> RuntimeConfig:
 
     frecency = _load_frecency_config(raw.get("frecency", {}))
     temp_links = _load_temp_link_config(raw.get("temp_links", {}))
-    metrics = _load_metrics_config(raw.get("metrics", {}))
-    return RuntimeConfig(frecency=frecency, temp_links=temp_links, metrics=metrics)
+    return RuntimeConfig(frecency=frecency, temp_links=temp_links)
 
 
 def _load_frecency_config(data: Dict[str, Any]) -> FrecencyConfig:
@@ -248,24 +221,6 @@ def _load_temp_link_config(data: Dict[str, Any]) -> TempLinkConfig:
     )
 
 
-def _load_metrics_config(data: Dict[str, Any]) -> MetricsConfig:
-    configured = _coerce_str_sequence(data.get("trusted_proxy_cidrs"))
-    if configured is None:
-        trusted = DEFAULT_TRUSTED_PROXY_CIDRS
-    else:
-        trusted = normalize_trusted_proxy_cidrs(configured)
-
-    env_value = environ.get(ENV_TRUSTED_PROXY_CIDRS)
-    if env_value is not None:
-        env_tokens = [token.strip() for token in env_value.split(",") if token.strip()]
-        if env_tokens:
-            trusted = normalize_trusted_proxy_cidrs(env_tokens)
-        else:
-            trusted = DEFAULT_TRUSTED_PROXY_CIDRS
-
-    return MetricsConfig(trusted_proxy_cidrs=trusted)
-
-
 def _coerce_bool(value: Any, default: bool) -> bool:
     if value is None:
         return default
@@ -320,36 +275,3 @@ def _env_bool(name: str) -> Optional[bool]:
     if normalized in {"0", "false", "no", "off"}:
         return False
     return None
-
-
-def _coerce_str_sequence(value: Any) -> Optional[Sequence[str]]:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        tokens = [token.strip() for token in value.replace("\n", ",").split(",")]
-        return [token for token in tokens if token]
-    if isinstance(value, Iterable):
-        result = []
-        for item in value:
-            token = str(item).strip()
-            if token:
-                result.append(token)
-        return result
-    return None
-
-
-def _normalize_trusted_proxy_cidrs(entries: Sequence[str]) -> Tuple[str, ...]:
-    normalized: list[str] = []
-    seen = set()
-    for entry in entries:
-        token = str(entry).strip()
-        if not token:
-            continue
-        try:
-            value = str(ip_network(token, strict=False))
-        except ValueError as exc:
-            raise ValueError(f"Invalid trusted proxy CIDR/IP: {token}") from exc
-        if value not in seen:
-            seen.add(value)
-            normalized.append(value)
-    return tuple(normalized)

@@ -19,6 +19,8 @@ TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
 METRICS_WHITELIST_KEY = "metrics_whitelist"
 DEFAULT_METRICS_WHITELIST = ("127.0.0.1/32", "::1/128")
+TRUSTED_PROXY_CIDRS_KEY = "trusted_proxy_cidrs"
+DEFAULT_TRUSTED_PROXY_CIDRS = ("127.0.0.1/32", "::1/128")
 METRICS_REQUESTS_TOTAL_KEY = "metrics_requests_total"
 METRICS_DENIED_TOTAL_KEY = "metrics_denied_total"
 
@@ -89,6 +91,62 @@ def _ensure_metrics_runtime_counters_metadata() -> None:
     """Ensure metadata contains default values for /metrics runtime counters."""
     set_metadata_value(METRICS_REQUESTS_TOTAL_KEY, "0", overwrite=False)
     set_metadata_value(METRICS_DENIED_TOTAL_KEY, "0", overwrite=False)
+
+
+def _ensure_trusted_proxy_cidrs_metadata() -> None:
+    """Ensure metadata contains trusted proxy CIDRs used for /metrics headers."""
+    existing = get_metadata_value(TRUSTED_PROXY_CIDRS_KEY)
+    if existing is not None:
+        return
+
+    defaults = _read_legacy_trusted_proxy_cidrs_from_config()
+    if defaults is None:
+        defaults = list(DEFAULT_TRUSTED_PROXY_CIDRS)
+    set_metadata_value(TRUSTED_PROXY_CIDRS_KEY, ",".join(defaults), overwrite=False)
+
+
+def _read_legacy_trusted_proxy_cidrs_from_config() -> Optional[List[str]]:
+    """
+    Migrate trusted proxy CIDRs from older config.toml storage, if present.
+
+    Returns None when the legacy setting does not exist.
+    """
+    config_path = app_config.get_config_path()
+    if not config_path.exists():
+        return None
+
+    try:
+        with config_path.open("r", encoding="utf-8") as handle:
+            raw = tomlkit.parse(handle.read())
+    except (OSError, ValueError):
+        return None
+
+    metrics = raw.get("metrics")
+    if metrics is None:
+        return None
+    value = metrics.get("trusted_proxy_cidrs")
+    if value is None:
+        return None
+
+    entries: List[str] = []
+    if isinstance(value, str):
+        tokens = [token.strip() for token in value.replace("\n", ",").split(",")]
+    else:
+        try:
+            tokens = [str(item).strip() for item in value]
+        except TypeError:
+            return None
+
+    for token in tokens:
+        if not token:
+            continue
+        try:
+            normalized = _normalize_trusted_proxy_entry(token)
+        except ValueError:
+            continue
+        if normalized not in entries:
+            entries.append(normalized)
+    return entries
 
 
 def _cleanup_orphaned_tags() -> int:
@@ -483,9 +541,19 @@ def increment_metrics_runtime_counters(*, denied: bool) -> Dict[str, int]:
 
 
 def _normalize_metrics_whitelist_entry(value: str) -> str:
+    return _normalize_cidr_or_ip_entry(value, empty_message="Whitelist entry cannot be empty.")
+
+
+def _normalize_trusted_proxy_entry(value: str) -> str:
+    return _normalize_cidr_or_ip_entry(
+        value, empty_message="Trusted proxy entry cannot be empty."
+    )
+
+
+def _normalize_cidr_or_ip_entry(value: str, *, empty_message: str) -> str:
     entry = value.strip()
     if not entry:
-        raise ValueError("Whitelist entry cannot be empty.")
+        raise ValueError(empty_message)
     if "/" in entry:
         return str(ip_network(entry, strict=False))
     host = ip_address(entry)
@@ -595,6 +663,7 @@ def init_db(cur_version: str) -> None:
     app_config.ensure_config_file()
     _ensure_expires_column()
     _ensure_metrics_whitelist_metadata()
+    _ensure_trusted_proxy_cidrs_metadata()
     _ensure_metrics_runtime_counters_metadata()
 
 
@@ -765,19 +834,44 @@ def update_frecency_config(batch_size: int, max_rank: int) -> Dict[str, int]:
 
 def get_trusted_proxy_cidrs() -> List[str]:
     """Return the configured trusted proxy CIDRs for forwarded metrics IP headers."""
-    metrics = app_config.get_runtime_config().metrics
-    return list(metrics.trusted_proxy_cidrs)
+    raw = get_metadata_value(TRUSTED_PROXY_CIDRS_KEY)
+    if raw is None:
+        _ensure_trusted_proxy_cidrs_metadata()
+        raw = get_metadata_value(TRUSTED_PROXY_CIDRS_KEY)
+    if raw is None:
+        return list(DEFAULT_TRUSTED_PROXY_CIDRS)
+    if not raw.strip():
+        return []
+
+    normalized: List[str] = []
+    for segment in raw.split(","):
+        token = segment.strip()
+        if not token:
+            continue
+        try:
+            value = _normalize_trusted_proxy_entry(token)
+        except ValueError:
+            continue
+        if value not in normalized:
+            normalized.append(value)
+    return normalized
 
 
 def normalize_trusted_proxy_cidrs(entries: List[str]) -> List[str]:
     """Validate and normalize trusted proxy CIDR/IP entries without persisting."""
-    return list(app_config.normalize_trusted_proxy_cidrs(entries))
+    normalized: List[str] = []
+    for entry in entries:
+        value = _normalize_trusted_proxy_entry(entry)
+        if value not in normalized:
+            normalized.append(value)
+    return normalized
 
 
 def update_trusted_proxy_cidrs(entries: List[str]) -> List[str]:
     """Persist trusted proxy CIDR/IP entries and return normalized values."""
-    metrics = app_config.update_metrics_settings(entries).metrics
-    return list(metrics.trusted_proxy_cidrs)
+    normalized = normalize_trusted_proxy_cidrs(entries)
+    set_metadata_value(TRUSTED_PROXY_CIDRS_KEY, ",".join(normalized))
+    return normalized
 
 
 def get_reset_filter_on_click() -> bool:

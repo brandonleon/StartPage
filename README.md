@@ -155,6 +155,7 @@ The algorithm ensures that:
 ### Prometheus Metrics
 - StartPage exposes Prometheus-style metrics at `GET /metrics`.
 - Access is restricted to IP/CIDR entries stored in SQLite metadata (`metrics_whitelist`); default entries are `127.0.0.1/32` and `::1/128`.
+- Trusted proxy CIDRs used for forwarded `/metrics` headers are also stored in SQLite metadata (`trusted_proxy_cidrs`) and default to `127.0.0.1/32` and `::1/128`.
 - Manage that whitelist from local CLI:
   - `uv run python -m services.config_cli metrics-whitelist show`
   - `uv run python -m services.config_cli metrics-whitelist add 10.0.0.0/8`
@@ -181,11 +182,8 @@ The algorithm ensures that:
   trusted proxy CIDR list (defaults to loopback only: `127.0.0.1/32,::1/128`).
 - If nginx runs from another host/container network, add that CIDR using
   `trusted-proxies add` (for example: `172.18.0.0/16`).
-- After changing trusted proxy CIDRs, restart StartPage (container/process) so
-  all workers reload runtime config. Without restart, `/metrics` can continue
-  returning `403` until old workers are replaced.
-- If `STARTPAGE_TRUSTED_PROXY_CIDRS` is set, it overrides CLI-managed trusted
-  proxy values.
+- Trusted proxy CIDR changes apply immediately because `/metrics` reads them
+  from metadata per request; no restart is required.
 - `/docs` includes the OpenAPI details for the `/metrics` route, including 403 behavior when a client IP is not whitelisted.
 
 ### Theme Switching
