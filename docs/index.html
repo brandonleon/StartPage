@@ -383,9 +383,16 @@ docker logs startpage
 
 # Restart the container
 docker restart startpage
+# or via justfile shortcut
+just restart
 
 # Remove the container
 docker rm -f startpage</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Updating the Container (<code>just docker-replace</code>)</h3>
+        <p>To pull the latest code and replace the running container in one step:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>just docker-replace</code></pre>
+        <p class="small text-muted">This recipe runs <code>git pull</code>, rebuilds the image, stops and removes the old container, and starts the new one with the same volume mount. Equivalent to running the stop/rm/build/run sequence manually.</p>
     </section>
 
     <!-- Local Development -->
@@ -410,12 +417,14 @@ just install</code></pre>
 
         <p><strong>Development mode (with hot reload):</strong></p>
         <pre class="bg-dark text-light p-3 rounded"><code>just develop
-# or
+# or with a custom port (default is 8000, not the Docker port 8080)
+just develop 8080
+# or directly
 uv run uvicorn main:app --reload</code></pre>
 
         <p><strong>Production mode (in screen session):</strong></p>
         <pre class="bg-dark text-light p-3 rounded"><code>just run</code></pre>
-        <p class="small text-muted">This runs the app in a detached screen session. Use <code>screen -r</code> to attach.</p>
+        <p class="small text-muted">This runs the app in a detached screen session named <code>startpage</code>. Use <code>screen -r startpage</code> to attach.</p>
 
         <p><strong>Standard run:</strong></p>
         <pre class="bg-dark text-light p-3 rounded"><code>uv run uvicorn main:app</code></pre>
@@ -441,6 +450,8 @@ uv run mypy services</code></pre>
             <li><strong>Docker:</strong> <code>~/.config/startpage/links.db</code> (mounted from host)</li>
         </ul>
 
+        <p class="small text-muted">For the full schema including an ER diagram and column descriptions, see <a href="../dbschema.md" target="_blank" rel="noopener noreferrer"><code>dbschema.md</code></a> in the project root.</p>
+
         <h3 class="h5 mt-4 mb-2">Direct SQL maintenance</h3>
         <p>For bulk edits or scripted maintenance you can work directly against the SQLite database.</p>
         <ol>
@@ -454,7 +465,7 @@ UPDATE links SET rank = 1.0 WHERE name = 'Docs';
 .quit</code></pre>
             </li>
             <li class="mb-3">
-                <strong>Understand the schema.</strong> Core tables are <code>links</code> (primary data), <code>tags</code>, and <code>tag_link_map</code>. Foreign keys keep orphaned rows from lingering, so deleting a tag automatically clears <code>tag_link_map</code> entries.
+                <strong>Understand the schema.</strong> Core tables are <code>links</code> (primary data), <code>tags</code>, and <code>tagmap</code>. Foreign keys keep orphaned rows from lingering, so deleting a tag automatically clears <code>tagmap</code> entries.
             </li>
             <li>
                 <strong>Automate with Python.</strong> Import <code>services.db_utils</code> in your own scripts to re-use helpers such as <code>save_link</code>, <code>get_links</code>, <code>rename_tag</code>, or <code>delete_link</code>.
@@ -480,7 +491,7 @@ UPDATE links SET rank = 1.0 WHERE name = 'Docs';
                 <tr>
                     <td>2.x</td>
                     <td>db_v2.sql</td>
-                    <td>+ Tags and tag_link_map tables</td>
+                    <td>+ Tags and tagmap tables</td>
                 </tr>
             </tbody>
         </table>
@@ -512,7 +523,7 @@ UPDATE links SET rank = 1.0 WHERE name = 'Docs';
         <p>Version 2 adds the tagging feature. The migration adds two new tables:</p>
         <ul>
             <li><code>tags</code> - Stores tag definitions</li>
-            <li><code>tag_link_map</code> - Maps tags to links (many-to-many relationship)</li>
+            <li><code>tagmap</code> - Maps tags to links (many-to-many relationship)</li>
         </ul>
 
         <p><strong>Steps to migrate:</strong></p>
@@ -543,7 +554,7 @@ sqlite3 data/links.db < sql_scripts/v1_to_v2.sql
 
 # Verify
 sqlite3 data/links.db "SELECT name FROM sqlite_master WHERE type='table';"
-# Should show: links, metadata, tags, tag_link_map</code></pre>
+# Should show: links, metadata, tags, tagmap</code></pre>
 
         <h3 class="h5 mt-4 mb-2">Rolling Back a Migration</h3>
         <p>If you need to roll back:</p>
@@ -650,6 +661,10 @@ docker start startpage</code></pre>
                 <tr>
                     <td><code>/edit/{link_id}</code></td>
                     <td>Edit existing link properties and tags</td>
+                </tr>
+                <tr>
+                    <td><code>/search</code></td>
+                    <td>HTMX-powered real-time search endpoint (query param: <code>q</code>)</td>
                 </tr>
                 <tr>
                     <td><code>/help</code></td>
@@ -790,7 +805,12 @@ docker start startpage</code></pre>
                 <tr>
                     <td><code>temp_links.purge_interval_seconds</code></td>
                     <td>600</td>
-                    <td>Background cleanup cadence (also runs on every read)</td>
+                    <td>Background cleanup cadence in seconds (also runs on every read). The <code>/settings</code> UI displays and accepts this value in <strong>minutes</strong>.</td>
+                </tr>
+                <tr>
+                    <td><code>reset_filter_on_click</code></td>
+                    <td>false</td>
+                    <td>When enabled, clicking a link clears the active tag filter and returns to the unfiltered home view. Stored in SQLite metadata (not <code>config.toml</code>); toggle via <code>/settings</code>.</td>
                 </tr>
             </tbody>
         </table>
@@ -988,7 +1008,7 @@ resets(startpage_metrics_requests_total{job="startpage"}[7d])</code></pre>
 
     <!-- Footer -->
     <section class="text-center py-4 text-muted">
-        <p>StartPage v2.0.0 - Project Administrator Guide</p>
+        <p>StartPage v2.6.2 - Project Administrator Guide</p>
         <p class="small">Last updated: February 2026</p>
     </section>
 </div>
