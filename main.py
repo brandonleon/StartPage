@@ -784,14 +784,11 @@ async def edit_link(
 
 
 # delete individual link
-@app.delete("/delete/{link_id}", response_class=HTMLResponse)
-async def delete(request: Request, link_id):
+@app.delete("/delete/{link_id}")
+async def delete(link_id: str) -> Response:
     db_utils.delete_link(link_id)
-    print(link_id)
-    return templates.TemplateResponse(
-        "delete.html",
-        template_context(request=request),
-    )
+    # Return 200 so HTMX applies client-side swap behavior (hx-swap="delete").
+    return Response(status_code=200)
 
 
 @app.post("/dashboard/bulk-delete")

@@ -95,50 +95,47 @@
                     {% set badge_text = "Watchlist" %}
                     {% set badge_class = "text-bg-warning" %}
                 {% endif %}
-                <div class="col"
+                <div class="col dashboard-card-col"
                      {% if loop.last %}
                         hx-get="/dashboard_items/1"
                         hx-trigger="revealed"
                         hx-swap="afterend"
                      {% endif %}>
-                    <article class="glass-panel h-100 d-flex flex-column justify-content-between">
-                        <div class="mb-3">
-                            <div class="d-flex flex-column gap-2">
-                                <div class="d-flex justify-content-between align-items-start gap-3">
-                                    <div class="d-flex align-items-start gap-2 w-100">
-                                        <div class="form-check mt-1">
-                                            <input class="form-check-input" type="checkbox" name="selected_links" value="{{ link.id }}"
-                                                   id="select-{{ link.id }}" data-bulk-checkbox aria-label="Select {{ link.name }}">
-                                        </div>
-                                        <div>
-                                            <h2 class="h5 mb-1">{{ link.name }}</h2>
-                                            <a class="text-muted small link-url" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
-                                            {% if link.tags %}
-                                            <div class="mt-2">
-                                                {% for tag in link.tags %}
-                                                <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
-                                                {% endfor %}
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <span class="badge {{ badge_class }}">Rank {{ "%.2f"|format(link.rank) }}</span>
+                    <article class="glass-panel dashboard-card h-100 d-flex flex-column">
+                        <header class="dashboard-card-header d-flex justify-content-between align-items-start gap-3 mb-3">
+                            <div class="d-flex align-items-start gap-2 w-100">
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="checkbox" name="selected_links" value="{{ link.id }}"
+                                           id="select-{{ link.id }}" data-bulk-checkbox aria-label="Select {{ link.name }}">
                                 </div>
-                                <div class="small text-muted">Last opened {{ link.accessed }}</div>
-                                {% if link.is_temporary %}
-                                <div class="temp-indicator">
-                                    <span class="badge bg-warning text-dark">Temporary</span>
-                                    <span>Expires in {{ link.expires_in }}</span>
+                                <div class="dashboard-card-main">
+                                    <h2 class="h5 mb-1 dashboard-card-title">{{ link.name }}</h2>
+                                    <a class="text-muted small link-url dashboard-card-url" href="/redirect/{{ link.id }}" target="_blank">{{ link.url }}</a>
                                 </div>
-                                {% endif %}
                             </div>
+                            <span class="badge {{ badge_class }} dashboard-rank-badge">{{ badge_text }} · {{ "%.2f"|format(link.rank) }}</span>
+                        </header>
+                        {% if link.tags %}
+                        <div class="dashboard-tag-list mb-3">
+                            {% for tag in link.tags %}
+                            <a href="/tag/{{ tag.name }}" class="badge bg-primary text-decoration-none dashboard-tag">{{ tag.name }}</a>
+                            {% endfor %}
                         </div>
-                        <div class="d-flex gap-2 flex-wrap">
+                        {% endif %}
+                        <div class="dashboard-card-meta small text-muted">Last opened {{ link.accessed }}</div>
+                        {% if link.is_temporary %}
+                        <div class="temp-indicator dashboard-temp-indicator mt-2">
+                            <span class="badge bg-warning text-dark">Temporary</span>
+                            <span>Expires in {{ link.expires_in }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="dashboard-card-actions d-flex gap-2 flex-wrap mt-auto pt-3">
                             <a class="btn btn-outline-light flex-grow-1" href="/edit/{{ link.id }}">Edit</a>
-                            <button class="btn btn-danger flex-grow-1"
-                                    hx-confirm="Delete {{ link.name }}?"
-                                    hx-target="closest .col"
-                                    hx-swap="outerHTML"
+                            <button class="btn btn-danger flex-grow-1 dashboard-card-delete"
+                                    type="button"
+                                    hx-confirm="Delete '{{ link.name }}'? This cannot be undone."
+                                    hx-target="closest .dashboard-card-col"
+                                    hx-swap="delete swap:180ms"
                                     hx-delete="/delete/{{ link.id }}">
                                 Delete
                             </button>

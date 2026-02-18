@@ -455,6 +455,103 @@ function initFilterResetBehavior() {
     });
 }
 
+function initCustomHtmxConfirm() {
+    if (!window.htmx || document.body.dataset.customConfirmBound === "true") {
+        return;
+    }
+    document.body.dataset.customConfirmBound = "true";
+
+    const backdrop = document.createElement("div");
+    backdrop.className = "custom-confirm-backdrop";
+    backdrop.setAttribute("hidden", "hidden");
+    backdrop.innerHTML = `
+        <div class="glass-panel custom-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="custom-confirm-title">
+            <p class="text-uppercase text-muted small mb-2">Confirm action</p>
+            <h2 class="h5 mb-2" id="custom-confirm-title">Are you sure?</h2>
+            <p class="mb-0" data-custom-confirm-message></p>
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <button type="button" class="btn btn-outline-secondary" data-custom-confirm-cancel>Cancel</button>
+                <button type="button" class="btn btn-primary" data-custom-confirm-accept>Confirm</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    const messageEl = backdrop.querySelector("[data-custom-confirm-message]");
+    const cancelBtn = backdrop.querySelector("[data-custom-confirm-cancel]");
+    const acceptBtn = backdrop.querySelector("[data-custom-confirm-accept]");
+
+    let pendingAction = null;
+    let restoreFocusEl = null;
+
+    const closeModal = () => {
+        backdrop.classList.remove("is-visible");
+        document.body.classList.remove("custom-confirm-open");
+        pendingAction = null;
+        window.setTimeout(() => {
+            backdrop.setAttribute("hidden", "hidden");
+            restoreFocusEl?.focus?.();
+            restoreFocusEl = null;
+        }, 120);
+    };
+
+    const openModal = ({ message, destructive, onConfirm }) => {
+        pendingAction = onConfirm;
+        restoreFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        messageEl.textContent = message || "Do you want to continue?";
+        if (destructive) {
+            acceptBtn.classList.remove("btn-primary");
+            acceptBtn.classList.add("btn-danger");
+            acceptBtn.textContent = "Delete";
+        } else {
+            acceptBtn.classList.remove("btn-danger");
+            acceptBtn.classList.add("btn-primary");
+            acceptBtn.textContent = "Confirm";
+        }
+        backdrop.removeAttribute("hidden");
+        document.body.classList.add("custom-confirm-open");
+        window.requestAnimationFrame(() => {
+            backdrop.classList.add("is-visible");
+            cancelBtn.focus();
+        });
+    };
+
+    acceptBtn.addEventListener("click", () => {
+        const action = pendingAction;
+        closeModal();
+        action?.();
+    });
+
+    cancelBtn.addEventListener("click", closeModal);
+
+    backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && backdrop.classList.contains("is-visible")) {
+            closeModal();
+        }
+    });
+
+    document.body.addEventListener("htmx:confirm", (event) => {
+        const detail = event.detail || {};
+        if (!detail.question || typeof detail.issueRequest !== "function") {
+            return;
+        }
+        event.preventDefault();
+        const sourceEl = detail.elt instanceof Element ? detail.elt : null;
+        const destructive = Boolean(sourceEl?.matches("[hx-delete], .btn-danger, [data-confirm-destructive='true']"));
+        openModal({
+            message: detail.question,
+            destructive,
+            onConfirm: () => detail.issueRequest(true),
+        });
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSearchClear();
@@ -464,6 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initTagRenameControls();
     initTemporaryLinkControls();
     initFilterResetBehavior();
+    initCustomHtmxConfirm();
 });
 
 document.body.addEventListener("htmx:afterSwap", () => {
@@ -473,4 +571,5 @@ document.body.addEventListener("htmx:afterSwap", () => {
     initTagRenameControls();
     initTemporaryLinkControls();
     initFilterResetBehavior();
+    initCustomHtmxConfirm();
 });

@@ -12,8 +12,8 @@ dockerbuild:
 run:
   screen -dmS startpage uv run uvicorn main:app
 
-develop:
-  uv run uvicorn main:app --reload
+develop port='8000':
+  uv run uvicorn main:app --port {{port}} --reload
 
 remove:
   rm -rf .venv
