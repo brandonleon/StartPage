@@ -1,6 +1,6 @@
 [project]
 name = "startpage"
-version = "2.6.2"
+version = "2.7.0"
 description = ""
 authors = [{ name = "Brandon Leon", email = "brandonleon@pm.me" }]
 readme = "README.md"

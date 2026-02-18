@@ -44,7 +44,15 @@ if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
 
 # Create the app
-app = FastAPI()
+app = FastAPI(
+    title=str(config["app_name"]),
+    version=str(config["app_version"]),
+    summary="Self-hosted frecency-based link manager API.",
+    description=(
+        "StartPage exposes routes for links, tags, imports/exports, configuration, "
+        "and Prometheus metrics. This OpenAPI schema powers the in-app /docs route."
+    ),
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # set up the templates
@@ -650,8 +658,10 @@ async def redirect(background_tasks: BackgroundTasks, link_id):
 
 # edit individual link
 @app.get("/edit/{link_id}", response_class=HTMLResponse)
-async def edit(request: Request, link_id):
+async def edit(request: Request, link_id: str):
     link = db_utils.get_link(link_id, False)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Link not found")
     tags = db_utils.get_tags_for_link(link_id)
     all_tags = db_utils.get_all_tags()
     expires_at = link["expires_at"] if link else None
@@ -673,6 +683,19 @@ async def edit(request: Request, link_id):
             title=f"{config['app_name']} · Edit Link",
             temp_link_form=temp_link_form,
             temp_link_summary=temp_link_summary,
+            form_values={
+                "link_name": link["name"],
+                "link_url": link["url"],
+                "tag_names": "",
+                "is_temporary": bool(expires_at),
+                "temporary_preset": temp_link_form["preset"],
+                "temporary_custom_hours": (
+                    str(temp_link_form["custom_hours"])
+                    if temp_link_form["custom_hours"] is not None
+                    else ""
+                ),
+            },
+            errors={},
         ),
     )
 
@@ -680,29 +703,92 @@ async def edit(request: Request, link_id):
 # process the edit link form
 @app.post("/edit/{link_id}", response_class=HTMLResponse)
 async def edit_link(
-    link_id,
+    request: Request,
+    link_id: str,
     link_name: str = Form(...),
     link_url: str = Form(...),
+    tag_names: str = Form(""),
     is_temporary: Optional[str] = Form(None),
     temporary_preset: str = Form("24h"),
     temporary_custom_hours: Optional[str] = Form(None),
 ):
+    form_values = {
+        "link_name": link_name.strip(),
+        "link_url": link_url.strip(),
+        "tag_names": tag_names.strip(),
+        "is_temporary": is_temporary is not None,
+        "temporary_preset": temporary_preset,
+        "temporary_custom_hours": (temporary_custom_hours or "").strip(),
+    }
     expires_at = _resolve_expiration(
         is_temporary, temporary_preset, temporary_custom_hours
     )
-    db_utils.save_link(link_name, link_url, link_id, expires_at)
+    link = db_utils.get_link(link_id, False)
+    if link is None:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    should_update_link = (
+        form_values["link_name"] != link["name"]
+        or form_values["link_url"] != link["url"]
+        or expires_at != link["expires_at"]
+    )
+
+    if should_update_link:
+        try:
+            db_utils.save_link(
+                form_values["link_name"],
+                form_values["link_url"],
+                link_id,
+                expires_at,
+            )
+        except db_utils.DuplicateLinkError as exc:
+            field_key = "link_name" if exc.field == "name" else "link_url"
+            errors = {
+                field_key: f"A link with this {exc.field} already exists. Use the existing entry instead."
+            }
+            tags = db_utils.get_tags_for_link(link_id)
+            all_tags = db_utils.get_all_tags()
+            custom_hours = None
+            if form_values["temporary_custom_hours"]:
+                try:
+                    custom_hours = int(float(form_values["temporary_custom_hours"]))
+                except (TypeError, ValueError):
+                    custom_hours = None
+            temp_form = _build_temp_link_form(
+                enabled=form_values["is_temporary"],
+                preset=form_values["temporary_preset"],
+                custom_hours=custom_hours,
+            )
+            temp_summary = db_utils.format_expires_in(expires_at) if expires_at else None
+            return templates.TemplateResponse(
+                "edit.html",
+                template_context(
+                    request=request,
+                    link=link,
+                    tags=tags,
+                    all_tags=all_tags,
+                    title=f"{config['app_name']} · Edit Link",
+                    temp_link_form=temp_form,
+                    temp_link_summary=temp_summary,
+                    form_values=form_values,
+                    errors=errors,
+                ),
+                status_code=400,
+            )
+
+    if form_values["tag_names"]:
+        tags = [tag.strip() for tag in form_values["tag_names"].split(",") if tag.strip()]
+        for tag in tags:
+            db_utils.add_tag_to_link(link_id, tag)
     return RedirectResponse(app.url_path_for("root"), status_code=302)
 
 
 # delete individual link
-@app.delete("/delete/{link_id}", response_class=HTMLResponse)
-async def delete(request: Request, link_id):
+@app.delete("/delete/{link_id}")
+async def delete(link_id: str) -> Response:
     db_utils.delete_link(link_id)
-    print(link_id)
-    return templates.TemplateResponse(
-        "delete.html",
-        template_context(request=request),
-    )
+    # Return 200 so HTMX applies client-side swap behavior (hx-swap="delete").
+    return Response(status_code=200)
 
 
 @app.post("/dashboard/bulk-delete")
@@ -961,7 +1047,7 @@ async def add_tag(link_id: str, tag_name: str = Form(...)):
         tags = [tag.strip() for tag in tag_name.split(",") if tag.strip()]
         for tag in tags:
             db_utils.add_tag_to_link(link_id, tag)
-    return RedirectResponse(app.url_path_for("root"), status_code=302)
+    return RedirectResponse(app.url_path_for("edit", link_id=link_id), status_code=303)
 
 
 @app.delete("/link/{link_id}/tag/{tag_id}", response_class=HTMLResponse)
