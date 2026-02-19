@@ -10,7 +10,7 @@ dockerbuild:
   docker run -d -p 8080:8080 --restart=always --name startpage -v ~/.config/startpage:/usr/startpage/data startpage
 
 run:
-  screen -dmS startpage uv run uvicorn main:app
+  startpage uv run uvicorn main:app
 
 develop port='8000':
   uv run uvicorn main:app --port {{port}} --reload
