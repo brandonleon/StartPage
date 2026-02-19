@@ -30,12 +30,17 @@ def test_get_count():
 
 
 def test_get_links():
-    assert isinstance(db_utils.get_links(), list)
-    assert isinstance(db_utils.get_links()[0]["id"], str)
-    assert isinstance(db_utils.get_links()[0]["url"], str)
-    assert isinstance(db_utils.get_links()[0]["name"], str)
-    assert isinstance(db_utils.get_links()[0]["rank"], float)
-    assert isinstance(db_utils.get_links()[0]["accessed"], str)
+    link_id = db_utils.save_link(f"Test-{uuid4()}", f"https://test.example/{uuid4()}")
+    try:
+        links = db_utils.get_links()
+        assert isinstance(links, list)
+        assert isinstance(links[0]["id"], str)
+        assert isinstance(links[0]["url"], str)
+        assert isinstance(links[0]["name"], str)
+        assert isinstance(links[0]["rank"], float)
+        assert isinstance(links[0]["accessed"], str)
+    finally:
+        db_utils.delete_link(link_id)
 
 
 def test_get_frecency_config():

@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import logging
 import sqlite3
+from contextlib import asynccontextmanager
 from datetime import datetime
 from ipaddress import ip_address, ip_network
 from math import ceil
@@ -44,6 +45,17 @@ if config["app_version"].major != config["db_version"].major:
     db_utils.upgrade_db(config["db_version"].major, config["app_version"].major)
 
 # Create the app
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db_utils.purge_expired_links()
+    cleanup_task = asyncio.create_task(_temp_link_cleanup_loop())
+    app.state.temp_link_cleanup = cleanup_task
+    yield
+    cleanup_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await cleanup_task
+
+
 app = FastAPI(
     title=str(config["app_name"]),
     version=str(config["app_version"]),
@@ -52,6 +64,7 @@ app = FastAPI(
         "StartPage exposes routes for links, tags, imports/exports, configuration, "
         "and Prometheus metrics. This OpenAPI schema powers the in-app /docs route."
     ),
+    lifespan=lifespan,
 )
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -368,7 +381,7 @@ async def root(request: Request, page: int = 0):
     tags = db_utils.get_all_tags()
     frecency = db_utils.get_frecency_config()
     return templates.TemplateResponse(
-        "index.html",
+        request, "index.html",
         template_context(
             request=request,
             links=lks,
@@ -397,7 +410,7 @@ async def dashboard(request: Request, page: int = 0):
             created = updated = skipped = 0
         import_summary = {"created": created, "updated": updated, "skipped": skipped}
     return templates.TemplateResponse(
-        "dashboard.html",
+        request, "dashboard.html",
         template_context(
             request=request,
             links=lks,
@@ -453,7 +466,7 @@ async def links(request: Request, page: int):
     frecency = db_utils.get_frecency_config()
     next_page = page + 1 if len(lks) == frecency["batch_size"] else None
     return templates.TemplateResponse(
-        "links.html",
+        request, "links.html",
         template_context(
             request=request,
             links=lks,
@@ -471,7 +484,7 @@ async def links(request: Request, page: int):
     frecency = db_utils.get_frecency_config()
     next_page = page + 1 if len(lks) == frecency["batch_size"] else None
     return templates.TemplateResponse(
-        "dashboard_items.html",
+        request, "dashboard_items.html",
         template_context(
             request=request,
             links=lks,
@@ -496,7 +509,7 @@ async def search(request: Request, text: str = "", view: str = "links"):
     template_name = SEARCH_PARTIALS.get(view, SEARCH_PARTIALS["links"])
 
     return templates.TemplateResponse(
-        template_name,
+        request, template_name,
         template_context(
             request=request,
             links=lks,
@@ -520,7 +533,7 @@ async def add_display(request: Request):
         "temporary_custom_hours": "",
     }
     return templates.TemplateResponse(
-        "add.html",
+        request, "add.html",
         template_context(
             request=request,
             title=f"{config['app_name']} · Add Link",
@@ -579,7 +592,7 @@ async def check_duplicate_link(
         return HTMLResponse("")
 
     return templates.TemplateResponse(
-        "partials/duplicate_link_warning.html",
+        request, "partials/duplicate_link_warning.html",
         {
             "request": request,
             "duplicate": duplicate,
@@ -626,7 +639,7 @@ async def add_link(
             custom_hours=int(form_values["temporary_custom_hours"]) if form_values["temporary_custom_hours"] else None,
         )
         return templates.TemplateResponse(
-            "add.html",
+            request, "add.html",
             template_context(
                 request=request,
                 title=f"{config['app_name']} · Add Link",
@@ -674,7 +687,7 @@ async def edit(request: Request, link_id: str):
     )
     temp_link_summary = db_utils.format_expires_in(expires_at) if expires_at else None
     return templates.TemplateResponse(
-        "edit.html",
+        request, "edit.html",
         template_context(
             request=request,
             link=link,
@@ -761,7 +774,7 @@ async def edit_link(
             )
             temp_summary = db_utils.format_expires_in(expires_at) if expires_at else None
             return templates.TemplateResponse(
-                "edit.html",
+                request, "edit.html",
                 template_context(
                     request=request,
                     link=link,
@@ -814,7 +827,7 @@ async def bulk_tag(selected_links: List[str] = Form(default=[]), tag_names: str 
 @app.get("/help", response_class=HTMLResponse)
 async def help_page(request: Request):
     return templates.TemplateResponse(
-        "help.html",
+        request, "help.html",
         template_context(
             request=request,
             title=f"{config['app_name']} · Help",
@@ -827,7 +840,7 @@ async def help_page(request: Request):
 async def stats_page(request: Request):
     stats = db_utils.get_stats()
     return templates.TemplateResponse(
-        "stats.html",
+        request, "stats.html",
         template_context(
             request=request,
             title=f"{config['app_name']} · Statistics",
@@ -955,7 +968,7 @@ async def settings_page(request: Request):
         "reset_filter_on_click": reset_filter,
     }
     return templates.TemplateResponse(
-        "settings.html",
+        request, "settings.html",
         template_context(
             request=request,
             title=f"{config['app_name']} · Settings",
@@ -1002,7 +1015,7 @@ async def update_settings(
             "reset_filter_on_click": reset_filter_on_click is not None,
         }
         return templates.TemplateResponse(
-            "settings.html",
+            request, "settings.html",
             template_context(
                 request=request,
                 title=f"{config['app_name']} · Settings",
@@ -1031,7 +1044,7 @@ async def update_settings(
 async def tags_page(request: Request):
     tags = db_utils.get_all_tags()
     return templates.TemplateResponse(
-        "tags.html",
+        request, "tags.html",
         template_context(
             request=request,
             title=f"{config['app_name']} · Tags",
@@ -1054,7 +1067,7 @@ async def add_tag(link_id: str, tag_name: str = Form(...)):
 async def remove_tag(request: Request, link_id: str, tag_id: str):
     db_utils.remove_tag_from_link(link_id, tag_id)
     return templates.TemplateResponse(
-        "tag_removed.html",
+        request, "tag_removed.html",
         template_context(request=request),
     )
 
@@ -1063,7 +1076,7 @@ async def remove_tag(request: Request, link_id: str, tag_id: str):
 async def delete_tag_route(request: Request, tag_id: str):
     db_utils.delete_tag(tag_id)
     return templates.TemplateResponse(
-        "tag_deleted.html",
+        request, "tag_deleted.html",
         template_context(request=request),
     )
 
@@ -1080,7 +1093,7 @@ async def filter_by_tag(request: Request, tag_name: str, page: int = 0):
     tags = db_utils.get_all_tags()
     frecency = db_utils.get_frecency_config()
     return templates.TemplateResponse(
-        "index.html",
+        request, "index.html",
         template_context(
             request=request,
             links=lks,
@@ -1099,7 +1112,7 @@ async def tag_links_page(request: Request, tag_name: str, page: int):
     frecency = db_utils.get_frecency_config()
     next_page = page + 1 if len(lks) == frecency["batch_size"] else None
     return templates.TemplateResponse(
-        "links.html",
+        request, "links.html",
         template_context(
             request=request,
             links=lks,
@@ -1116,20 +1129,6 @@ async def _temp_link_cleanup_loop() -> None:
         db_utils.purge_expired_links()
         await asyncio.sleep(temp_link_settings["purge_interval_seconds"])
 
-
-@app.on_event("startup")
-async def _start_temp_link_cleanup() -> None:
-    db_utils.purge_expired_links()
-    app.state.temp_link_cleanup = asyncio.create_task(_temp_link_cleanup_loop())
-
-
-@app.on_event("shutdown")
-async def _stop_temp_link_cleanup() -> None:
-    cleanup_task = getattr(app.state, "temp_link_cleanup", None)
-    if cleanup_task:
-        cleanup_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await cleanup_task
 
 
 # start the server
