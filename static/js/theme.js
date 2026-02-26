@@ -179,6 +179,17 @@ function initTagSuggestions() {
         container.className = "tag-suggestions";
         input.insertAdjacentElement("afterend", container);
 
+        let activeIndex = -1;
+
+        const getButtons = () => Array.from(container.querySelectorAll("button"));
+
+        const setActiveIndex = (index) => {
+            activeIndex = index;
+            getButtons().forEach((btn, i) => {
+                btn.classList.toggle("is-active", i === activeIndex);
+            });
+        };
+
         const getState = () => {
             const raw = input.value || "";
             const trailingDelimiter = /,\s*$/.test(raw);
@@ -203,6 +214,7 @@ function initTagSuggestions() {
         };
 
         const hideSuggestions = () => {
+            activeIndex = -1;
             container.classList.remove("is-visible");
             container.innerHTML = "";
         };
@@ -247,6 +259,7 @@ function initTagSuggestions() {
                 hideSuggestions();
                 return;
             }
+            activeIndex = -1;
             container.innerHTML = "";
             matches.forEach((tag) => {
                 const button = document.createElement("button");
@@ -263,6 +276,25 @@ function initTagSuggestions() {
 
         input.addEventListener("input", updateSuggestions);
         input.addEventListener("focus", updateSuggestions);
+        input.addEventListener("keydown", (event) => {
+            if (!container.classList.contains("is-visible")) return;
+            const buttons = getButtons();
+            if (buttons.length === 0) return;
+            if (event.key === "ArrowDown" || event.key === "ArrowRight" || (event.key === "Tab" && !event.shiftKey)) {
+                event.preventDefault();
+                setActiveIndex((activeIndex + 1) % buttons.length);
+            } else if (event.key === "ArrowUp" || event.key === "ArrowLeft" || (event.key === "Tab" && event.shiftKey)) {
+                event.preventDefault();
+                setActiveIndex((activeIndex - 1 + buttons.length) % buttons.length);
+            } else if (event.key === "Enter") {
+                if (activeIndex >= 0) {
+                    event.preventDefault();
+                    applySuggestion(buttons[activeIndex].textContent);
+                }
+            } else if (event.key === "Escape") {
+                hideSuggestions();
+            }
+        });
         input.addEventListener("blur", () => {
             setTimeout(() => hideSuggestions(), 120);
         });

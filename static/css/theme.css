@@ -231,10 +231,11 @@ html[data-theme="mocha"] .form-text {
 }
 
 .tag-suggestions button:hover,
-.tag-suggestions button:focus-visible {
+.tag-suggestions button:focus-visible,
+.tag-suggestions button.is-active {
     background-color: var(--ctp-overlay);
     color: var(--ctp-text);
-    border-color: var(--ctp-overlay);
+    border-color: var(--ctp-accent-soft);
     outline: none;
 }
 
