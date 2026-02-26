@@ -18,7 +18,13 @@ db_path = realpath(join(dirname(__file__), "..", "data", "links.db"))
 TAG_WHITESPACE_PATTERN = re.compile(r"\s+")
 TAG_INVALID_CHARS_PATTERN = re.compile(r"[^a-z0-9-]")
 METRICS_WHITELIST_KEY = "metrics_whitelist"
-DEFAULT_METRICS_WHITELIST = ("127.0.0.1/32", "::1/128")
+DEFAULT_METRICS_WHITELIST = (
+    "127.0.0.0/8",     # loopback
+    "::1/128",         # IPv6 loopback
+    "10.0.0.0/8",      # RFC 1918 class A
+    "172.16.0.0/12",   # RFC 1918 class B (includes Docker default 172.17.x)
+    "192.168.0.0/16",  # RFC 1918 class C (home networks, Docker Desktop)
+)
 TRUSTED_PROXY_CIDRS_KEY = "trusted_proxy_cidrs"
 DEFAULT_TRUSTED_PROXY_CIDRS = ("127.0.0.1/32", "::1/128")
 METRICS_REQUESTS_TOTAL_KEY = "metrics_requests_total"
