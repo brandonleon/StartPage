@@ -2,7 +2,7 @@
 <html lang="en" data-theme="{{ theme | default('system') }}">
 {% include '_header.html' %}
 <body data-reset-filter-on-click="{{ 'true' if reset_filter_on_click else 'false' }}"
-      data-is-filtered="{{ 'true' if filtered_tag else 'false' }}"
+      data-is-filtered="{{ 'true' if filtered_tags else 'false' }}"
       {% if embed_mode %}class="embed-mode"{% endif %}>
 
 {% if not embed_mode %}
@@ -25,7 +25,7 @@
     <section class="{% if not embed_mode %}glass-panel{% endif %}">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
             <div>
-                <h2 class="{% if embed_mode %}h6{% else %}h4{% endif %} mb-1">{% if filtered_tag %}Links tagged "{{ filtered_tag }}"{% else %}Pinned Links{% endif %}</h2>
+                <h2 class="{% if embed_mode %}h6{% else %}h4{% endif %} mb-1">{% if filtered_tags %}Links tagged {{ filtered_tags | join(', ') }}{% else %}Pinned Links{% endif %}</h2>
                 {% if not embed_mode %}
                 <p class="text-muted mb-0">Sorted by how frequently you access them.</p>
                 {% endif %}
@@ -35,15 +35,30 @@
             {% endif %}
         </div>
         {% if all_tags and not embed_mode %}
+        {% set active_tags = filtered_tags | default([]) %}
         <div class="mb-3">
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="text-muted small">Filter by tag:</span>
-                {% if filtered_tag %}
-                <a href="/{{ embed_query_params }}" class="badge bg-secondary text-decoration-none">Show all</a>
+                {% if active_tags %}
+                <a href="/{%- if embed_query_params -%}{{ embed_query_params }}{%- endif -%}" class="badge bg-secondary text-decoration-none">Clear all</a>
                 {% endif %}
                 {% for tag in all_tags %}
-                <a href="/tag/{{ tag.name }}{{ embed_query_params }}" class="badge {% if filtered_tag == tag.name %}bg-primary{% else %}bg-light text-dark{% endif %} text-decoration-none">
-                    {{ tag.name }} <span class="text-muted">({{ tag.count }})</span>
+                {% set is_active = tag.name in active_tags %}
+                {% if is_active %}
+                    {# Build the URL with this tag removed from the active set #}
+                    {% set remaining = active_tags | reject("equalto", tag.name) | list %}
+                    {% if remaining %}
+                        {% set tag_href = "/?tags=" + (remaining | join(",")) + embed_query_params %}
+                    {% else %}
+                        {% set tag_href = "/" + embed_query_params %}
+                    {% endif %}
+                {% else %}
+                    {# Build the URL with this tag added to the active set #}
+                    {% set new_tags = active_tags + [tag.name] %}
+                    {% set tag_href = "/?tags=" + (new_tags | join(",")) + embed_query_params %}
+                {% endif %}
+                <a href="{{ tag_href }}" class="badge {% if is_active %}bg-primary{% else %}bg-light text-dark{% endif %} text-decoration-none">
+                    {{ tag.name }}{% if is_active %} ×{% else %} <span class="text-muted">({{ tag.count }})</span>{% endif %}
                 </a>
                 {% endfor %}
             </div>
@@ -54,8 +69,8 @@
             {% for link in links %}
                 <li class="list-group-item flex-column align-items-start"
                     {% if loop.index == page_batch_size %}
-                        {% if filtered_tag %}
-                            hx-get="/tag/{{ filtered_tag }}/links/{{ page + 1 }}{{ embed_query_params }}"
+                        {% if filtered_tags %}
+                            hx-get="/links/{{ page + 1 }}?tags={{ filtered_tags | join(',') }}{{ embed_query_params }}"
                         {% else %}
                             hx-get="/links/{{ page + 1 }}{{ embed_query_params }}"
                         {% endif %}
@@ -78,7 +93,15 @@
                                 {% if link.tags %}
                                 <div class="mt-2">
                                     {% for tag in link.tags %}
-                                    <a href="/tag/{{ tag.name }}{{ embed_query_params }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                                    {% set is_tag_active = tag.name in (filtered_tags | default([])) %}
+                                    {% if is_tag_active %}
+                                        {% set remaining = (filtered_tags | default([])) | reject("equalto", tag.name) | list %}
+                                        {% set tag_href = ("/?tags=" + (remaining | join(","))) if remaining else ("/" + embed_query_params) %}
+                                    {% else %}
+                                        {% set new_tags = (filtered_tags | default([])) + [tag.name] %}
+                                        {% set tag_href = "/?tags=" + (new_tags | join(",")) + embed_query_params %}
+                                    {% endif %}
+                                    <a href="{{ tag_href }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
                                     {% endfor %}
                                 </div>
                                 {% endif %}

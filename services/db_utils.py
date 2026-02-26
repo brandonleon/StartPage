@@ -1269,6 +1269,54 @@ def get_links_by_tag(tag_name: str, page: int = 0, batch: Optional[int] = None) 
     return [_serialize_link_row(row, now) for row in rows]
 
 
+def get_links_by_tags(tag_names: List[str], page: int = 0, batch: Optional[int] = None) -> List[dict]:
+    """
+    Get links that have ALL of the specified tags (AND logic), sorted by frecency.
+
+    Parameters:
+        tag_names (List[str]): Tag names to filter by.
+        page (int): Page number.
+        batch (int | None): Number of links to return per page.
+
+    Returns:
+        list: List of links that carry every specified tag, including all their tags.
+    """
+    if not tag_names:
+        return get_links(page, batch)
+    if len(tag_names) == 1:
+        return get_links_by_tag(tag_names[0], page, batch)
+
+    purge_expired_links()
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+    if batch is None:
+        batch = app_config.get_runtime_config().frecency.batch_size
+    offset = page * batch
+
+    placeholders = ",".join("?" * len(tag_names))
+    cur.execute(
+        "SELECT l.id, l.url, l.name, l.rank, l.accessed, l.expires_at "
+        "FROM links l "
+        f"WHERE l.id IN ("
+        f"    SELECT tlm.link_id "
+        f"    FROM tag_link_map tlm "
+        f"    INNER JOIN tags t ON tlm.tag_id = t.id "
+        f"    WHERE t.name IN ({placeholders}) "
+        f"    GROUP BY tlm.link_id "
+        f"    HAVING COUNT(DISTINCT t.name) = ?"
+        f") "
+        "ORDER BY 10000 * l.rank * (3.75/((0.0001 * (strftime('%s','now') - l.accessed) + 1) + 0.25)) DESC "
+        "LIMIT ?, ?",
+        [*tag_names, len(tag_names), offset, batch],
+    )
+    rows = cur.fetchall()
+    con.close()
+
+    now = int(time())
+    return [_serialize_link_row(row, now) for row in rows]
+
+
 # Get database statistics.
 def get_stats() -> Dict[str, Any]:
     """

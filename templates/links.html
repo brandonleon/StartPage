@@ -3,8 +3,8 @@
     {% for link in links %}
         <li class="list-group-item flex-column align-items-start"
             {% if next_page and loop.index == page_batch_size %}
-                {% if filtered_tag %}
-                    hx-get="/tag/{{ filtered_tag }}/links/{{ next_page }}{{ embed_query_params }}"
+                {% if filtered_tags %}
+                    hx-get="/links/{{ next_page }}?tags={{ filtered_tags | join(',') }}{{ embed_query_params }}"
                 {% else %}
                     hx-get="/links/{{ next_page }}{{ embed_query_params }}"
                 {% endif %}
@@ -25,7 +25,15 @@
                         {% if link.tags %}
                         <div class="mt-2">
                             {% for tag in link.tags %}
-                            <a href="/tag/{{ tag.name }}{{ embed_query_params }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
+                            {% set is_tag_active = tag.name in (filtered_tags | default([])) %}
+                            {% if is_tag_active %}
+                                {% set remaining = (filtered_tags | default([])) | reject("equalto", tag.name) | list %}
+                                {% set tag_href = ("/?tags=" + (remaining | join(","))) if remaining else ("/" + embed_query_params) %}
+                            {% else %}
+                                {% set new_tags = (filtered_tags | default([])) + [tag.name] %}
+                                {% set tag_href = "/?tags=" + (new_tags | join(",")) + embed_query_params %}
+                            {% endif %}
+                            <a href="{{ tag_href }}" class="badge bg-primary text-decoration-none me-1">{{ tag.name }}</a>
                             {% endfor %}
                         </div>
                         {% endif %}

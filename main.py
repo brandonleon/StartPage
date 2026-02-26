@@ -376,9 +376,10 @@ async def metrics(request: Request):
 
 # get first page of links
 @app.get("/", response_class=HTMLResponse)
-async def root(request: Request, page: int = 0):
-    lks = db_utils.get_links(page)
-    tags = db_utils.get_all_tags()
+async def root(request: Request, page: int = 0, tags: str = ""):
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    lks = db_utils.get_links_by_tags(tag_list, page) if tag_list else db_utils.get_links(page)
+    all_tags = db_utils.get_all_tags()
     frecency = db_utils.get_frecency_config()
     return templates.TemplateResponse(
         request, "index.html",
@@ -387,7 +388,8 @@ async def root(request: Request, page: int = 0):
             links=lks,
             page=page,
             title=f"{config['app_name']} · Home",
-            all_tags=tags,
+            all_tags=all_tags,
+            filtered_tags=tag_list,
             batch_size=frecency["batch_size"],
         ),
     )
@@ -461,8 +463,9 @@ async def import_links_endpoint(format_name: str = Form(..., alias="format"), up
 
 # get next page of links for infinite scroll
 @app.get("/links/{page}", response_class=HTMLResponse)
-async def links(request: Request, page: int):
-    lks = db_utils.get_links(page)
+async def links(request: Request, page: int, tags: str = ""):
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+    lks = db_utils.get_links_by_tags(tag_list, page) if tag_list else db_utils.get_links(page)
     frecency = db_utils.get_frecency_config()
     next_page = page + 1 if len(lks) == frecency["batch_size"] else None
     return templates.TemplateResponse(
@@ -472,6 +475,7 @@ async def links(request: Request, page: int):
             links=lks,
             page=page,
             next_page=next_page,
+            filtered_tags=tag_list,
             batch_size=frecency["batch_size"],
         ),
     )

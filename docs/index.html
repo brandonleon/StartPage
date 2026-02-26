@@ -182,6 +182,18 @@
             </div>
             <div class="col-md-6">
                 <div class="glass-panel h-100">
+                    <h3 class="h5">Multi-tag filtering</h3>
+                    <p class="text-muted">The homepage supports composable tag filters via the <code>?tags=</code> query parameter. Pass a comma-separated list of tag names to show only links that carry <em>all</em> of them (AND logic).</p>
+                    <ul class="small">
+                        <li>Clicking a tag badge adds it to the active filter set; clicking an active tag (marked ×) removes it.</li>
+                        <li><strong>Clear all</strong> strips all active tags and returns to the unfiltered view.</li>
+                        <li>The HTMX infinite-scroll pagination forwards <code>?tags=</code> automatically so the filter persists across pages.</li>
+                        <li>The existing <code>/tag/{name}</code> single-tag routes are preserved for backwards compatibility.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="glass-panel h-100">
                     <h3 class="h5">Tag rename &amp; merge</h3>
                     <p class="text-muted">The <code>/tags</code> view now exposes an inline Rename control for every tag. Submitting the form posts to <code>/tag/:id/rename</code> and ultimately <code>db_utils.rename_tag</code>.</p>
                     <ul class="small">
@@ -243,7 +255,7 @@
         <div class="glass-panel">
             <h4 class="h6">Example URLs:</h4>
             <pre class="bg-dark text-light p-3 rounded mb-2"><code>http://localhost:8080/?embed=true
-http://localhost:8080/?embed=true&tag=work
+http://localhost:8080/?embed=true&tags=work
 http://localhost:8080/dashboard?embed=true</code></pre>
         </div>
 
@@ -267,7 +279,8 @@ http://localhost:8080/?theme=light</code></pre>
         <div class="glass-panel">
             <h4 class="h6">Example URLs:</h4>
             <pre class="bg-dark text-light p-3 rounded mb-2"><code>http://localhost:8080/?embed=true&theme=dark
-http://localhost:8080/?embed=true&theme=light&tag=personal</code></pre>
+http://localhost:8080/?embed=true&theme=light&tags=personal
+http://localhost:8080/?embed=true&theme=dark&tags=work,projects</code></pre>
         </div>
 
         <h3 class="h5 mt-4 mb-2">Use Cases</h3>
@@ -637,7 +650,7 @@ docker start startpage</code></pre>
             <tbody>
                 <tr>
                     <td><code>/</code></td>
-                    <td>Homepage with frecency-ranked links and infinite scroll</td>
+                    <td>Homepage with frecency-ranked links and infinite scroll; supports <code>?tags=tag1,tag2</code> for composable multi-tag filtering</td>
                 </tr>
                 <tr>
                     <td><code>/dashboard</code></td>
