@@ -134,7 +134,8 @@
             <li class="list-group-item"><a href="#overview">Overview</a></li>
             <li class="list-group-item"><a href="#embed-mode">Embed Mode & Themes</a></li>
             <li class="list-group-item"><a href="#deployment">Deployment Options</a></li>
-            <li class="list-group-item"><a href="#docker">Docker Deployment</a></li>
+            <li class="list-group-item"><a href="#ghcr">Deploy from GitHub Container Registry</a></li>
+            <li class="list-group-item"><a href="#docker">Docker Deployment (build from source)</a></li>
             <li class="list-group-item"><a href="#local">Local Development</a></li>
             <li class="list-group-item"><a href="#database">Database Management</a></li>
             <li class="list-group-item"><a href="#migration">Database Migration Guide</a></li>
@@ -329,21 +330,35 @@ http://localhost:8080/?embed=true&theme=dark&tags=work,projects</code></pre>
     <section class="glass-panel mb-4" id="deployment">
         <h2 class="h3 mb-3">Deployment Options</h2>
         <div class="row g-4">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="glass-panel h-100">
-                    <h3 class="h5">Docker (Recommended)</h3>
-                    <p class="text-muted">Best for production deployments. Isolated environment with automatic restarts.</p>
+                    <h3 class="h5">GHCR Pre-built Image <span class="badge bg-success ms-1 small">Recommended</span></h3>
+                    <p class="text-muted">Pull the published image directly from GitHub Container Registry — no source checkout or build step required.</p>
                     <ul>
-                        <li>Easy to deploy</li>
+                        <li>No build toolchain needed</li>
+                        <li>Multi-arch (amd64 &amp; arm64)</li>
+                        <li>One command to start</li>
+                        <li>Data persistence via volumes</li>
+                    </ul>
+                    <a href="#ghcr" class="btn btn-sm btn-outline-success mt-2">Setup guide →</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-panel h-100">
+                    <h3 class="h5">Docker (build from source)</h3>
+                    <p class="text-muted">Clone the repo and build the image locally. Good when you need to modify the code before running.</p>
+                    <ul>
+                        <li>Full control over the build</li>
                         <li>Consistent environment</li>
                         <li>Automatic restart on failure</li>
                         <li>Data persistence via volumes</li>
                     </ul>
+                    <a href="#docker" class="btn btn-sm btn-outline-secondary mt-2">Setup guide →</a>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="glass-panel h-100">
-                    <h3 class="h5">Local/Screen Session</h3>
+                    <h3 class="h5">Local / Screen Session</h3>
                     <p class="text-muted">Good for development or personal deployments on a dedicated server.</p>
                     <ul>
                         <li>Direct access to code</li>
@@ -351,14 +366,102 @@ http://localhost:8080/?embed=true&theme=dark&tags=work,projects</code></pre>
                         <li>No containerization overhead</li>
                         <li>Requires manual restart</li>
                     </ul>
+                    <a href="#local" class="btn btn-sm btn-outline-secondary mt-2">Setup guide →</a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Docker Deployment -->
+    <!-- GHCR Deployment -->
+    <section class="glass-panel mb-4" id="ghcr">
+        <h2 class="h3 mb-3">Deploy from GitHub Container Registry</h2>
+        <p>Stable releases of StartPage are automatically published to <a href="https://ghcr.io/brandonleon/startpage" target="_blank" rel="noopener noreferrer"><code>ghcr.io/brandonleon/startpage</code></a> as multi-architecture images (linux/amd64 and linux/arm64). No source checkout or build step is required.</p>
+
+        <div class="alert alert-info" role="alert">
+            <strong>Image tags:</strong> <code>latest</code> always points to the most recent stable release. Pinned version tags (e.g. <code>2.8.0</code>) are also available for reproducible deployments. Pre-release versions (alpha, beta, RC) are <em>not</em> published to the registry.
+        </div>
+
+        <h3 class="h5 mt-4 mb-2">Quick Start</h3>
+        <p>One command to pull and run:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>mkdir -p ~/.config/startpage
+docker run -d -p 8080:8080 \
+  --restart=always \
+  --name startpage \
+  -v ~/.config/startpage:/usr/startpage/data \
+  ghcr.io/brandonleon/startpage:latest</code></pre>
+        <p class="small text-muted">Or use the justfile shortcut: <code>just ghcr-run</code> (requires a local clone of the repo for the justfile).</p>
+
+        <h3 class="h5 mt-4 mb-2">Pinning to a Specific Version</h3>
+        <p>For reproducible deployments, replace <code>latest</code> with a version tag:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>docker run -d -p 8080:8080 \
+  --restart=always \
+  --name startpage \
+  -v ~/.config/startpage:/usr/startpage/data \
+  ghcr.io/brandonleon/startpage:2.8.0</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Updating to the Latest Release</h3>
+        <p>Pull the new image and replace the running container in one step:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code>docker pull ghcr.io/brandonleon/startpage:latest
+docker stop startpage && docker rm startpage
+docker run -d -p 8080:8080 \
+  --restart=always \
+  --name startpage \
+  -v ~/.config/startpage:/usr/startpage/data \
+  ghcr.io/brandonleon/startpage:latest</code></pre>
+        <p class="small text-muted">Or use <code>just ghcr-replace</code> to run these steps automatically.</p>
+
+        <h3 class="h5 mt-4 mb-2">Available Tags</h3>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th>Tag</th>
+                    <th>Meaning</th>
+                    <th>Use case</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>latest</code></td>
+                    <td>Most recent stable release</td>
+                    <td>Default — always up to date</td>
+                </tr>
+                <tr>
+                    <td><code>2.8.0</code></td>
+                    <td>Exact version</td>
+                    <td>Pinned / reproducible deployments</td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="small text-muted">All available tags are listed on the <a href="https://github.com/brandonleon/StartPage/pkgs/container/startpage" target="_blank" rel="noopener noreferrer">package page</a>.</p>
+
+        <h3 class="h5 mt-4 mb-2">Docker Configuration</h3>
+        <p>The same environment variables apply regardless of how you obtained the image:</p>
+        <ul>
+            <li><code>WORKERS</code> — Number of Uvicorn workers (default: 2)</li>
+            <li><code>LOG_LEVEL</code> — Logging level (default: info)</li>
+        </ul>
+        <pre class="bg-dark text-light p-3 rounded"><code>docker run -d -p 8080:8080 \
+  --restart=always \
+  --name startpage \
+  -e WORKERS=4 \
+  -e LOG_LEVEL=warning \
+  -v ~/.config/startpage:/usr/startpage/data \
+  ghcr.io/brandonleon/startpage:latest</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">Authenticating with ghcr.io</h3>
+        <p>Public images on <code>ghcr.io</code> can be pulled without authentication. If the package visibility is set to private, log in first:</p>
+        <pre class="bg-dark text-light p-3 rounded"><code># Generate a classic Personal Access Token with read:packages scope at
+# https://github.com/settings/tokens
+echo YOUR_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin</code></pre>
+
+        <h3 class="h5 mt-4 mb-2">How the Image is Published</h3>
+        <p>A GitHub Actions workflow (<code>.github/workflows/publish-container.yml</code>) runs on every push to <code>main</code>. It reads the version from <code>pyproject.toml</code> and only publishes if the version matches the stable <code>X.Y.Z</code> pattern — pushes with alpha, beta, or RC versions are silently skipped.</p>
+        <p>The image is built for both <code>linux/amd64</code> and <code>linux/arm64</code>, so it runs natively on x86 servers as well as ARM boards (Raspberry Pi 4/5, Rockchip, Apple Silicon VMs, etc.).</p>
+    </section>
+
+    <!-- Docker Deployment (build from source) -->
     <section class="glass-panel mb-4" id="docker">
-        <h2 class="h3 mb-3">Docker Deployment</h2>
+        <h2 class="h3 mb-3">Docker Deployment (build from source)</h2>
 
         <h3 class="h5 mt-4 mb-2">Quick Start</h3>
         <pre class="bg-dark text-light p-3 rounded"><code>just dockerbuild</code></pre>
